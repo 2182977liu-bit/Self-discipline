@@ -7,9 +7,10 @@ import com.example.timemanager.data.remote.dto.Message
 import com.example.timemanager.domain.model.*
 import com.example.timemanager.domain.repository.AIRepository
 import com.google.gson.Gson
-import com.google.gson.JsonParser
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
 import retrofit2.Response
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -185,7 +186,7 @@ class AIRepositoryImpl @Inject constructor(
                 json
             }
 
-            val jsonObject = JsonParser.parseString(jsonContent).asJsonObject
+            val jsonObject = gson.fromJson(jsonContent, com.google.gson.JsonObject::class.java)
 
             Result.success(
                 ParsedTask(
@@ -220,7 +221,7 @@ class AIRepositoryImpl @Inject constructor(
                 json
             }
 
-            val jsonObject = JsonParser.parseString(jsonContent).asJsonObject
+            val jsonObject = gson.fromJson(jsonContent, com.google.gson.JsonObject::class.java)
 
             Result.success(
                 AISuggestion(

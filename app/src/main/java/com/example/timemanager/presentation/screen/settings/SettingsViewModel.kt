@@ -91,16 +91,32 @@ class SettingsViewModel @Inject constructor(
      */
     private fun loadSettings() {
         viewModelScope.launch {
-            combine(
+            kotlinx.coroutines.flow.combine(
                 userPreferences.kimiApiKey,
                 userPreferences.themeMode,
                 userPreferences.notificationEnabled,
                 userPreferences.soundEnabled,
-                userPreferences.vibrationEnabled,
-                userPreferences.defaultReminderMinutes,
-                userPreferences.waterReminderEnabled,
-                userPreferences.waterReminderInterval
-            ) { apiKey, theme, notification, sound, vibration, reminder, waterEnabled, waterInterval ->
+                userPreferences.vibrationEnabled
+            ) { apiKey, theme, notification, sound, vibration ->
+                arrayOf(apiKey, theme, notification, sound, vibration)
+            }.combine(
+                kotlinx.coroutines.flow.combine(
+                    userPreferences.defaultReminderMinutes,
+                    userPreferences.waterReminderEnabled,
+                    userPreferences.waterReminderInterval
+                ) { reminder, waterEnabled, waterInterval ->
+                    arrayOf(reminder, waterEnabled, waterInterval)
+                }
+            ) { first, second ->
+                @Suppress("UNCHECKED_CAST")
+                val apiKey = first[0] as String?
+                val theme = first[1] as Int
+                val notification = first[2] as Boolean
+                val sound = first[3] as Boolean
+                val vibration = first[4] as Boolean
+                val reminder = second[0] as Int
+                val waterEnabled = second[1] as Boolean
+                val waterInterval = second[2] as Int
                 SettingsUiState(
                     kimiApiKey = apiKey ?: "",
                     themeMode = theme,

@@ -115,7 +115,7 @@ fun SettingsScreen(
                 }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // 通知设置
             SettingsSection(title = "通知设置") {
@@ -150,7 +150,7 @@ fun SettingsScreen(
                 )
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // 提醒设置
             SettingsSection(title = "提醒设置") {
@@ -195,7 +195,7 @@ fun SettingsScreen(
                 }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // 健康提醒设置
             SettingsSection(title = "健康提醒") {
@@ -248,7 +248,7 @@ fun SettingsScreen(
                 }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // 关于
             SettingsSection(title = "关于") {
@@ -260,7 +260,7 @@ fun SettingsScreen(
                 ListItem(
                     headlineContent = { Text("AI智能时间管理") },
                     supportingContent = { Text("基于Kimi AI的智能任务管理应用") },
-                    leading = {
+                    leadingContent = {
                         Icon(Icons.Default.Info, contentDescription = null)
                     }
                 )

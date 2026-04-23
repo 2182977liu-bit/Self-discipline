@@ -31,22 +31,29 @@ jobs:
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}
 
-      - name: Upload Debug APK
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace 2>&1 | tee build.log
+
+      - name: Upload build log on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-arm64
-          path: app/build/outputs/apk/debug/*.apk
+          name: build-log
+          path: build.log
 
-      - name: Build Summary
-        if: always()
-        run: |
-          echo "## Build Result" >> $GITHUB_STEP_SUMMARY
-          if [ -f app/build/outputs/apk/debug/*.apk ]; then
-            echo "✅ Build successful! APK artifact is available for download." >> $GITHUB_STEP_SUMMARY
-            ls -lh app/build/outputs/apk/debug/*.apk >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Build failed. Check the build logs for details." >> $GITHUB_STEP_SUMMARY
-          fi
+      - name: Upload Debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk

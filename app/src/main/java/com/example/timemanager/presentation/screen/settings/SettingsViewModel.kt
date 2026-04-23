@@ -96,28 +96,44 @@ class SettingsViewModel @Inject constructor(
                 combine(
                     userPreferences.notificationEnabled,
                     userPreferences.soundEnabled,
-                    userPreferences.vibrationEnabled,
+                    userPreferences.vibrationEnabled
+                ) { a, b, c -> arrayOf(a, b, c) }
+            ) { first, mid ->
+                @Suppress("UNCHECKED_CAST")
+                val apiKey = first[0] as String?
+                val provider = first[1] as String
+                val customUrl = first[2] as String
+                val customModel = first[3] as String
+                val theme = first[4] as Int
+                val notification = mid[0] as Boolean
+                val sound = mid[1] as Boolean
+                val vibration = mid[2] as Boolean
+                SettingsUiState(
+                    kimiApiKey = apiKey ?: "",
+                    aiProviderKey = provider,
+                    customBaseUrl = customUrl,
+                    customModel = customModel,
+                    themeMode = theme,
+                    notificationEnabled = notification,
+                    soundEnabled = sound,
+                    vibrationEnabled = vibration,
+                    defaultReminderMinutes = 30,
+                    waterReminderEnabled = false,
+                    waterReminderInterval = 60,
+                    isApiKeyValid = if (!apiKey.isNullOrBlank()) true else null
+                )
+            }.combine(
+                combine(
                     userPreferences.defaultReminderMinutes,
                     userPreferences.waterReminderEnabled,
                     userPreferences.waterReminderInterval
-                ) { a, b, c, d, e, f ->
-                    arrayOf(a, b, c, d, e, f)
-                }
-            ) { first, second ->
+                ) { a, b, c -> arrayOf(a, b, c) }
+            ) { state, last ->
                 @Suppress("UNCHECKED_CAST")
-                SettingsUiState(
-                    kimiApiKey = first[0] as String? ?: "",
-                    aiProviderKey = first[1] as String,
-                    customBaseUrl = first[2] as String,
-                    customModel = first[3] as String,
-                    themeMode = first[4] as Int,
-                    notificationEnabled = second[0] as Boolean,
-                    soundEnabled = second[1] as Boolean,
-                    vibrationEnabled = second[2] as Boolean,
-                    defaultReminderMinutes = second[3] as Int,
-                    waterReminderEnabled = second[4] as Boolean,
-                    waterReminderInterval = second[5] as Int,
-                    isApiKeyValid = if (!(first[0] as String?).isNullOrBlank()) true else null
+                state.copy(
+                    defaultReminderMinutes = last[0] as Int,
+                    waterReminderEnabled = last[1] as Boolean,
+                    waterReminderInterval = last[2] as Int
                 )
             }.collect { state ->
                 _uiState.update { state }

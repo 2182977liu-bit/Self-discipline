@@ -70,12 +70,12 @@ class AIRepositoryImpl @Inject constructor(
     private suspend fun createApiService(): KimiApiService {
         val provider = getCurrentProvider()
         val baseUrl = getBaseUrl(provider)
+        val apiKey = userPreferences.kimiApiKey.first() ?: ""
 
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor { chain ->
-                val apiKey = userPreferences.kimiApiKey.first()
                 val request = chain.request().newBuilder()
-                if (!apiKey.isNullOrBlank()) {
+                if (apiKey.isNotBlank()) {
                     request.header("Authorization", "Bearer $apiKey")
                 }
                 chain.proceed(request.build())

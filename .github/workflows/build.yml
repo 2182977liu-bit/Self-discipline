@@ -34,8 +34,8 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace 2>&1 | tee build.log
 
-      - name: Upload build log on failure
-        if: failure()
+      - name: Always upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log

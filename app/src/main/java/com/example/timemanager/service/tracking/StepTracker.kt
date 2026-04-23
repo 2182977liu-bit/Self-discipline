@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -12,12 +13,10 @@ import javax.inject.Singleton
 
 /**
  * 步数检测（使用加速度计传感器）
- *
- * 低功耗实现：仅在需要时注册监听
  */
 @Singleton
 class StepTracker @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager

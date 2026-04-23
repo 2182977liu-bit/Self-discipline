@@ -2,13 +2,15 @@ package com.example.timemanager.service.tracking
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /**
  * 屏幕使用检测（低功耗，辅助判断睡眠）
- *
- * 通过 UsageStatsManager 检查最近 N 分钟内是否有屏幕使用记录
  */
-class ScreenUsageTracker(private val context: Context) {
+class ScreenUsageTracker @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
 
     private val usageStatsManager = context
         .getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager

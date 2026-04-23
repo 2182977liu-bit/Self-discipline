@@ -134,6 +134,7 @@ fun AIInputDialog(
                                     Priority.HIGH -> "高"
                                     Priority.MEDIUM -> "中"
                                     Priority.LOW -> "低"
+                                    Priority.URGENT -> "紧急"
                                 }
                                 Text("优先级: $priorityName", style = MaterialTheme.typography.bodySmall)
                             }

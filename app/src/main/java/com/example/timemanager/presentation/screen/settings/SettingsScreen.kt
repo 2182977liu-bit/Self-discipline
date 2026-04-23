@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.BuildConfig
+import com.example.timemanager.domain.model.AIProvider
 
 /**
  * 设置屏幕
@@ -59,13 +60,75 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // API密钥设置
+            // AI设置
             SettingsSection(title = "AI设置") {
+                // AI 提供商选择
+                var providerExpanded by remember { mutableStateOf(false) }
+                val providers = AIProvider.entries
+
+                ExposedDropdownMenuBox(
+                    expanded = providerExpanded,
+                    onExpandedChange = { providerExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = uiState.currentProvider.displayName,
+                        onValueChange = {},
+                        label = { Text("AI 提供商") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = providerExpanded,
+                        onDismissRequest = { providerExpanded = false }
+                    ) {
+                        providers.forEach { provider ->
+                            DropdownMenuItem(
+                                text = { Text(provider.displayName) },
+                                onClick = {
+                                    viewModel.onEvent(SettingsEvent.UpdateAIProvider(provider.key))
+                                    providerExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 自定义提供商的额外配置
+                if (uiState.currentProvider == AIProvider.CUSTOM) {
+                    OutlinedTextField(
+                        value = uiState.customBaseUrl,
+                        onValueChange = { viewModel.onEvent(SettingsEvent.UpdateCustomBaseUrl(it)) },
+                        label = { Text("自定义 Base URL") },
+                        placeholder = { Text("https://api.example.com/") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = uiState.customModel,
+                        onValueChange = { viewModel.onEvent(SettingsEvent.UpdateCustomModel(it)) },
+                        label = { Text("自定义模型名称") },
+                        placeholder = { Text("gpt-3.5-turbo") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // API 密钥输入
                 OutlinedTextField(
                     value = uiState.kimiApiKey,
                     onValueChange = { viewModel.onEvent(SettingsEvent.UpdateApiKey(it)) },
-                    label = { Text("Kimi API密钥") },
-                    placeholder = { Text("sk-...") },
+                    label = { Text("API 密钥") },
+                    placeholder = { Text(uiState.currentProvider.keyPrefix.ifBlank { "输入API密钥" }) },
                     singleLine = true,
                     visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
@@ -81,7 +144,7 @@ fun SettingsScreen(
                         } else if (uiState.isApiKeyValid == false) {
                             Text("API密钥格式不正确", color = MaterialTheme.colorScheme.error)
                         } else {
-                            Text("在 platform.moonshot.cn 获取API密钥")
+                            Text(uiState.currentProvider.keyHint)
                         }
                     }
                 )
@@ -102,15 +165,17 @@ fun SettingsScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("验证密钥")
+                            Text("保存密钥")
                         }
                     }
 
-                    OutlinedButton(onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://platform.moonshot.cn/"))
-                        context.startActivity(intent)
-                    }) {
-                        Text("获取密钥")
+                    if (uiState.currentProvider != AIProvider.CUSTOM && uiState.currentProvider.websiteUrl.isNotEmpty()) {
+                        OutlinedButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uiState.currentProvider.websiteUrl))
+                            context.startActivity(intent)
+                        }) {
+                            Text("获取密钥")
+                        }
                     }
                 }
             }

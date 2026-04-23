@@ -3,6 +3,7 @@ package com.example.timemanager.presentation.screen.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timemanager.data.local.datastore.UserPreferences
+import com.example.timemanager.domain.model.AIProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -10,21 +11,12 @@ import javax.inject.Inject
 
 /**
  * 设置UI状态
- *
- * @property kimiApiKey Kimi API密钥
- * @property themeMode 主题模式 (0=跟随系统, 1=浅色, 2=深色)
- * @property notificationEnabled 通知开关
- * @property soundEnabled 声音开关
- * @property vibrationEnabled 振动开关
- * @property defaultReminderMinutes 默认提醒时间
- * @property waterReminderEnabled 喝水提醒开关
- * @property waterReminderInterval 喝水提醒间隔
- * @property isApiKeyValid API密钥是否有效
- * @property isLoading 是否正在加载
- * @property message 提示消息
  */
 data class SettingsUiState(
     val kimiApiKey: String = "",
+    val aiProviderKey: String = "kimi",
+    val customBaseUrl: String = "",
+    val customModel: String = "",
     val themeMode: Int = 0,
     val notificationEnabled: Boolean = true,
     val soundEnabled: Boolean = true,
@@ -35,7 +27,10 @@ data class SettingsUiState(
     val isApiKeyValid: Boolean? = null,
     val isLoading: Boolean = false,
     val message: String? = null
-)
+) {
+    val currentProvider: AIProvider
+        get() = AIProvider.fromKey(aiProviderKey)
+}
 
 /**
  * 设置事件
@@ -43,6 +38,9 @@ data class SettingsUiState(
 sealed class SettingsEvent {
     data class UpdateApiKey(val apiKey: String) : SettingsEvent()
     data object ValidateApiKey : SettingsEvent()
+    data class UpdateAIProvider(val providerKey: String) : SettingsEvent()
+    data class UpdateCustomBaseUrl(val url: String) : SettingsEvent()
+    data class UpdateCustomModel(val model: String) : SettingsEvent()
     data class UpdateThemeMode(val mode: Int) : SettingsEvent()
     data class UpdateNotificationEnabled(val enabled: Boolean) : SettingsEvent()
     data class UpdateSoundEnabled(val enabled: Boolean) : SettingsEvent()
@@ -54,8 +52,6 @@ sealed class SettingsEvent {
 
 /**
  * 设置ViewModel
- *
- * 管理设置页面的数据和业务逻辑
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -69,13 +65,13 @@ class SettingsViewModel @Inject constructor(
         loadSettings()
     }
 
-    /**
-     * 处理事件
-     */
     fun onEvent(event: SettingsEvent) {
         when (event) {
             is SettingsEvent.UpdateApiKey -> updateApiKey(event.apiKey)
             is SettingsEvent.ValidateApiKey -> validateApiKey()
+            is SettingsEvent.UpdateAIProvider -> updateAIProvider(event.providerKey)
+            is SettingsEvent.UpdateCustomBaseUrl -> updateCustomBaseUrl(event.url)
+            is SettingsEvent.UpdateCustomModel -> updateCustomModel(event.model)
             is SettingsEvent.UpdateThemeMode -> updateThemeMode(event.mode)
             is SettingsEvent.UpdateNotificationEnabled -> updateNotificationEnabled(event.enabled)
             is SettingsEvent.UpdateSoundEnabled -> updateSoundEnabled(event.enabled)
@@ -86,47 +82,42 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 加载设置
-     */
     private fun loadSettings() {
         viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
+            combine(
                 userPreferences.kimiApiKey,
-                userPreferences.themeMode,
-                userPreferences.notificationEnabled,
-                userPreferences.soundEnabled,
-                userPreferences.vibrationEnabled
-            ) { apiKey, theme, notification, sound, vibration ->
-                arrayOf(apiKey, theme, notification, sound, vibration)
+                userPreferences.aiProvider,
+                userPreferences.customBaseUrl,
+                userPreferences.customModel,
+                userPreferences.themeMode
+            ) { apiKey, provider, customUrl, customModel, theme ->
+                arrayOf(apiKey, provider, customUrl, customModel, theme)
             }.combine(
-                kotlinx.coroutines.flow.combine(
+                combine(
+                    userPreferences.notificationEnabled,
+                    userPreferences.soundEnabled,
+                    userPreferences.vibrationEnabled,
                     userPreferences.defaultReminderMinutes,
                     userPreferences.waterReminderEnabled,
                     userPreferences.waterReminderInterval
-                ) { reminder, waterEnabled, waterInterval ->
-                    arrayOf(reminder, waterEnabled, waterInterval)
+                ) { a, b, c, d, e, f ->
+                    arrayOf(a, b, c, d, e, f)
                 }
             ) { first, second ->
                 @Suppress("UNCHECKED_CAST")
-                val apiKey = first[0] as String?
-                val theme = first[1] as Int
-                val notification = first[2] as Boolean
-                val sound = first[3] as Boolean
-                val vibration = first[4] as Boolean
-                val reminder = second[0] as Int
-                val waterEnabled = second[1] as Boolean
-                val waterInterval = second[2] as Int
                 SettingsUiState(
-                    kimiApiKey = apiKey ?: "",
-                    themeMode = theme,
-                    notificationEnabled = notification,
-                    soundEnabled = sound,
-                    vibrationEnabled = vibration,
-                    defaultReminderMinutes = reminder,
-                    waterReminderEnabled = waterEnabled,
-                    waterReminderInterval = waterInterval,
-                    isApiKeyValid = if (!apiKey.isNullOrBlank()) true else null
+                    kimiApiKey = first[0] as String? ?: "",
+                    aiProviderKey = first[1] as String,
+                    customBaseUrl = first[2] as String,
+                    customModel = first[3] as String,
+                    themeMode = first[4] as Int,
+                    notificationEnabled = second[0] as Boolean,
+                    soundEnabled = second[1] as Boolean,
+                    vibrationEnabled = second[2] as Boolean,
+                    defaultReminderMinutes = second[3] as Int,
+                    waterReminderEnabled = second[4] as Boolean,
+                    waterReminderInterval = second[5] as Int,
+                    isApiKeyValid = if (!(first[0] as String?).isNullOrBlank()) true else null
                 )
             }.collect { state ->
                 _uiState.update { state }
@@ -134,100 +125,77 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 更新API密钥
-     */
     private fun updateApiKey(apiKey: String) {
         viewModelScope.launch {
             userPreferences.saveKimiApiKey(apiKey)
-            _uiState.update { 
-                it.copy(
-                    kimiApiKey = apiKey,
-                    isApiKeyValid = null
-                ) 
+            _uiState.update {
+                it.copy(kimiApiKey = apiKey, isApiKeyValid = null)
             }
         }
     }
 
-    /**
-     * 验证API密钥
-     */
     private fun validateApiKey() {
         viewModelScope.launch {
             val apiKey = _uiState.value.kimiApiKey
             if (apiKey.isBlank()) {
-                _uiState.update { 
-                    it.copy(
-                        isApiKeyValid = false,
-                        message = "请输入API密钥"
-                    ) 
+                _uiState.update {
+                    it.copy(isApiKeyValid = false, message = "请输入API密钥")
                 }
                 return@launch
             }
-
             _uiState.update { it.copy(isLoading = true) }
-
-            // 简单验证：检查格式
-            val isValid = apiKey.startsWith("sk-") && apiKey.length > 20
-
-            _uiState.update { 
+            val isValid = apiKey.length >= 10
+            _uiState.update {
                 it.copy(
                     isLoading = false,
                     isApiKeyValid = isValid,
-                    message = if (isValid) "API密钥验证成功" else "API密钥格式不正确"
-                ) 
+                    message = if (isValid) "API密钥已保存" else "API密钥格式不正确"
+                )
             }
         }
     }
 
-    /**
-     * 更新主题模式
-     */
+    private fun updateAIProvider(providerKey: String) {
+        viewModelScope.launch {
+            userPreferences.saveAIProvider(providerKey)
+            _uiState.update { it.copy(aiProviderKey = providerKey) }
+        }
+    }
+
+    private fun updateCustomBaseUrl(url: String) {
+        viewModelScope.launch {
+            userPreferences.saveCustomBaseUrl(url)
+            _uiState.update { it.copy(customBaseUrl = url) }
+        }
+    }
+
+    private fun updateCustomModel(model: String) {
+        viewModelScope.launch {
+            userPreferences.saveCustomModel(model)
+            _uiState.update { it.copy(customModel = model) }
+        }
+    }
+
     private fun updateThemeMode(mode: Int) {
-        viewModelScope.launch {
-            userPreferences.saveThemeMode(mode)
-        }
+        viewModelScope.launch { userPreferences.saveThemeMode(mode) }
     }
 
-    /**
-     * 更新通知开关
-     */
     private fun updateNotificationEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferences.saveNotificationEnabled(enabled)
-        }
+        viewModelScope.launch { userPreferences.saveNotificationEnabled(enabled) }
     }
 
-    /**
-     * 更新声音开关
-     */
     private fun updateSoundEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferences.saveSoundEnabled(enabled)
-        }
+        viewModelScope.launch { userPreferences.saveSoundEnabled(enabled) }
     }
 
-    /**
-     * 更新振动开关
-     */
     private fun updateVibrationEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferences.saveVibrationEnabled(enabled)
-        }
+        viewModelScope.launch { userPreferences.saveVibrationEnabled(enabled) }
     }
 
-    /**
-     * 更新默认提醒时间
-     */
     private fun updateDefaultReminder(minutes: Int) {
-        viewModelScope.launch {
-            userPreferences.saveDefaultReminderMinutes(minutes)
-        }
+        viewModelScope.launch { userPreferences.saveDefaultReminderMinutes(minutes) }
     }
 
-    /**
-     * 更新喝水提醒
-     */
     private fun updateWaterReminder(enabled: Boolean, interval: Int) {
         viewModelScope.launch {
             userPreferences.saveWaterReminderEnabled(enabled)
@@ -235,9 +203,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 清除消息
-     */
     private fun clearMessage() {
         _uiState.update { it.copy(message = null) }
     }

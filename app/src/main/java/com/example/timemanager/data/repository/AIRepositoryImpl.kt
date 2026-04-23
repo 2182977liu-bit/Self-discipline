@@ -7,25 +7,91 @@ import com.example.timemanager.data.remote.dto.Message
 import com.example.timemanager.domain.model.*
 import com.example.timemanager.domain.repository.AIRepository
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
-import retrofit2.Response
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * AI仓库实现
  *
- * 实现AIRepository接口，封装Kimi API调用
+ * 支持多个 AI 提供商，动态根据用户配置创建 Retrofit 实例
  */
 @Singleton
 class AIRepositoryImpl @Inject constructor(
-    private val kimiApiService: KimiApiService,
     private val userPreferences: UserPreferences
 ) : AIRepository {
 
     private val gson = Gson()
+
+    /**
+     * 根据当前配置获取 AI 提供商信息
+     */
+    private suspend fun getCurrentProvider(): AIProvider {
+        val providerKey = userPreferences.aiProvider.first()
+        return AIProvider.fromKey(providerKey)
+    }
+
+    /**
+     * 获取当前配置的 Base URL
+     */
+    private suspend fun getBaseUrl(provider: AIProvider): String {
+        return if (provider == AIProvider.CUSTOM) {
+            val customUrl = userPreferences.customBaseUrl.first()
+            if (customUrl.isBlank()) {
+                "https://api.openai.com/" // 默认回退
+            } else {
+                if (!customUrl.endsWith("/")) "$customUrl/" else customUrl
+            }
+        } else {
+            provider.baseUrl
+        }
+    }
+
+    /**
+     * 获取当前配置的模型名称
+     */
+    private suspend fun getModel(provider: AIProvider): String {
+        return if (provider == AIProvider.CUSTOM) {
+            val customModel = userPreferences.customModel.first()
+            customModel.ifBlank { "gpt-3.5-turbo" }
+        } else {
+            provider.defaultModel
+        }
+    }
+
+    /**
+     * 动态创建 API Service
+     */
+    private suspend fun createApiService(): KimiApiService {
+        val provider = getCurrentProvider()
+        val baseUrl = getBaseUrl(provider)
+
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val apiKey = userPreferences.kimiApiKey.first()
+                val request = chain.request().newBuilder()
+                if (!apiKey.isNullOrBlank()) {
+                    request.header("Authorization", "Bearer $apiKey")
+                }
+                chain.proceed(request.build())
+            }
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(KimiApiService::class.java)
+    }
 
     override suspend fun parseTask(input: String): Result<ParsedTask> {
         return try {
@@ -34,9 +100,13 @@ class AIRepositoryImpl @Inject constructor(
                 return Result.failure(IllegalStateException("请先配置API密钥"))
             }
 
+            val provider = getCurrentProvider()
+            val model = getModel(provider)
+            val apiService = createApiService()
+
             val systemPrompt = """
                 你是一个任务解析助手。请将用户的自然语言描述解析为结构化任务信息。
-                
+
                 请严格按照以下JSON格式返回结果，不要包含其他内容：
                 {
                     "title": "任务标题",
@@ -46,7 +116,7 @@ class AIRepositoryImpl @Inject constructor(
                     "priority": 优先级（1-4，1最低，4最高）,
                     "category": "分类（工作/学习/生活/健康/娱乐/其他）"
                 }
-                
+
                 注意：
                 1. title是必需的，从用户输入中提取核心任务
                 2. 如果用户没有提到时间，dueTimeString设为null
@@ -55,7 +125,7 @@ class AIRepositoryImpl @Inject constructor(
             """.trimIndent()
 
             val request = ChatRequest(
-                model = KimiApiService.MODEL_MOONSHOT_V1_8K,
+                model = model,
                 messages = listOf(
                     Message(role = "system", content = systemPrompt),
                     Message(role = "user", content = input)
@@ -64,7 +134,7 @@ class AIRepositoryImpl @Inject constructor(
                 maxTokens = 500
             )
 
-            val response = kimiApiService.createChatCompletion(request)
+            val response = apiService.createChatCompletion(request)
 
             if (response.isSuccessful && response.body() != null) {
                 val content = response.body()!!.choices.firstOrNull()?.message?.content ?: ""
@@ -84,13 +154,17 @@ class AIRepositoryImpl @Inject constructor(
                 return Result.failure(IllegalStateException("请先配置API密钥"))
             }
 
+            val provider = getCurrentProvider()
+            val model = getModel(provider)
+            val apiService = createApiService()
+
             val taskList = tasks.joinToString("\n") { task ->
                 "- ${task.title} | 优先级: ${task.priority.label} | 截止: ${task.dueTime ?: "无"} | 状态: ${task.status.label}"
             }
 
             val systemPrompt = """
                 你是一个时间管理助手。请根据用户的任务列表提供优化建议。
-                
+
                 请按照以下JSON格式返回：
                 {
                     "suggestion": "主要建议内容",
@@ -103,14 +177,14 @@ class AIRepositoryImpl @Inject constructor(
             val userMessage = """
                 当前任务列表：
                 $taskList
-                
+
                 上下文：$context
-                
+
                 请给出时间管理建议。
             """.trimIndent()
 
             val request = ChatRequest(
-                model = KimiApiService.MODEL_MOONSHOT_V1_8K,
+                model = model,
                 messages = listOf(
                     Message(role = "system", content = systemPrompt),
                     Message(role = "user", content = userMessage)
@@ -119,7 +193,7 @@ class AIRepositoryImpl @Inject constructor(
                 maxTokens = 1000
             )
 
-            val response = kimiApiService.createChatCompletion(request)
+            val response = apiService.createChatCompletion(request)
 
             if (response.isSuccessful && response.body() != null) {
                 val content = response.body()!!.choices.firstOrNull()?.message?.content ?: ""
@@ -133,7 +207,6 @@ class AIRepositoryImpl @Inject constructor(
     }
 
     override suspend fun detectConflicts(tasks: List<Task>): Result<List<TimeConflict>> {
-        // 简化实现：基于规则检测时间冲突
         val conflicts = mutableListOf<TimeConflict>()
 
         val tasksWithTime = tasks.filter { it.dueTime != null && it.status != TaskStatus.COMPLETED }
@@ -148,7 +221,6 @@ class AIRepositoryImpl @Inject constructor(
                 task2.dueTime!!
             ).toMinutes()
 
-            // 如果两个任务时间间隔小于任务1的持续时间，则存在冲突
             if (timeDiff < task1.duration.toMinutes()) {
                 conflicts.add(
                     TimeConflict(
@@ -177,7 +249,6 @@ class AIRepositoryImpl @Inject constructor(
 
     private fun parseTaskFromJson(json: String): Result<ParsedTask> {
         return try {
-            // 提取JSON部分（处理可能的额外文本）
             val jsonStart = json.indexOf("{")
             val jsonEnd = json.lastIndexOf("}") + 1
             val jsonContent = if (jsonStart >= 0 && jsonEnd > jsonStart) {
@@ -195,13 +266,12 @@ class AIRepositoryImpl @Inject constructor(
                     dueTimeString = jsonObject.get("dueTimeString")?.takeIf { !it.isJsonNull }?.asString,
                     durationMinutes = jsonObject.get("durationMinutes")?.takeIf { !it.isJsonNull }?.asInt,
                     priority = jsonObject.get("priority")?.takeIf { !it.isJsonNull }?.asInt?.let {
-                        Priority.fromValue(it - 1) // 转换为0-based
+                        Priority.fromValue(it - 1)
                     },
                     category = jsonObject.get("category")?.takeIf { !it.isJsonNull }?.asString
                 )
             )
         } catch (e: Exception) {
-            // 解析失败时返回基本任务
             Result.success(
                 ParsedTask(
                     title = json.take(50),
@@ -248,7 +318,6 @@ class AIRepositoryImpl @Inject constructor(
     }
 
     private fun parseTimeString(timeStr: String): LocalDateTime? {
-        // 简化实现：返回null，实际应用中需要更复杂的解析逻辑
         return null
     }
 }

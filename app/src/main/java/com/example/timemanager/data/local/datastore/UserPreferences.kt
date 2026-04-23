@@ -21,6 +21,9 @@ class UserPreferences(private val context: Context) {
     private object PreferencesKeys {
         // API密钥
         val KIMI_API_KEY = stringPreferencesKey("kimi_api_key")
+        val AI_PROVIDER = stringPreferencesKey("ai_provider")
+        val CUSTOM_BASE_URL = stringPreferencesKey("custom_base_url")
+        val CUSTOM_MODEL = stringPreferencesKey("custom_model")
 
         // 用户设置
         val THEME_MODE = intPreferencesKey("theme_mode") // 0=跟随系统, 1=浅色, 2=深色
@@ -66,6 +69,56 @@ class UserPreferences(private val context: Context) {
     suspend fun clearKimiApiKey() {
         context.dataStore.edit { preferences ->
             preferences.remove(PreferencesKeys.KIMI_API_KEY)
+        }
+    }
+
+    // ==================== AI 提供商设置 ====================
+
+    /**
+     * 获取当前 AI 提供商
+     */
+    val aiProvider: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.AI_PROVIDER] ?: "kimi"
+    }
+
+    /**
+     * 保存 AI 提供商
+     */
+    suspend fun saveAIProvider(provider: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AI_PROVIDER] = provider
+        }
+    }
+
+    /**
+     * 获取自定义 Base URL
+     */
+    val customBaseUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.CUSTOM_BASE_URL] ?: ""
+    }
+
+    /**
+     * 保存自定义 Base URL
+     */
+    suspend fun saveCustomBaseUrl(url: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CUSTOM_BASE_URL] = url
+        }
+    }
+
+    /**
+     * 获取自定义模型名称
+     */
+    val customModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.CUSTOM_MODEL] ?: ""
+    }
+
+    /**
+     * 保存自定义模型名称
+     */
+    suspend fun saveCustomModel(model: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CUSTOM_MODEL] = model
         }
     }
 

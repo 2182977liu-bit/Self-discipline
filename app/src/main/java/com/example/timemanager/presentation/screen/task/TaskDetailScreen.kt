@@ -4,7 +4,6 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -265,6 +263,7 @@ fun DateTimePicker(
 /**
  * 时长选择器
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DurationPicker(
     durationMinutes: Int,
@@ -316,6 +315,7 @@ fun DurationPicker(
 /**
  * 优先级选择器
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrioritySelector(
     priority: Priority,
@@ -358,6 +358,7 @@ fun PrioritySelector(
 /**
  * 分类选择器
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategorySelector(
     category: String,
@@ -401,6 +402,7 @@ fun CategorySelector(
 /**
  * 提醒时间选择器
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReminderSelector(
     reminderMinutes: Int,

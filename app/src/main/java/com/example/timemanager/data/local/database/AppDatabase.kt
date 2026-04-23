@@ -21,9 +21,8 @@ import com.example.timemanager.data.local.database.entity.HealthReminderEntity
         HealthReminderEntity::class
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
-@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun taskDao(): TaskDao
@@ -33,15 +32,4 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         const val DATABASE_NAME = "time_manager.db"
     }
-}
-
-/**
- * Room类型转换器
- *
- * 用于转换复杂类型到数据库基本类型
- */
-class Converters {
-
-    // 如需添加其他类型转换，可在此扩展
-    // 例如：List<String> <-> String (JSON)
 }

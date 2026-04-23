@@ -19,7 +19,7 @@ interface TaskDao {
     /**
      * 获取所有任务，按截止时间升序排列
      */
-    @Query("SELECT * FROM tasks ORDER BY dueTime ASC NULLS LAST, priority DESC")
+    @Query("SELECT * FROM tasks ORDER BY CASE WHEN dueTime IS NULL THEN 1 ELSE 0 END, dueTime ASC, priority DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
 
     /**

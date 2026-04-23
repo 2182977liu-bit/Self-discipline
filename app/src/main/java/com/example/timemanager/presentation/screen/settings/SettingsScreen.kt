@@ -175,7 +175,7 @@ fun SettingsScreen(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(enabled = true)
                     )
 
                     ExposedDropdownMenu(
@@ -227,7 +227,7 @@ fun SettingsScreen(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor()
+                                .menuAnchor(enabled = true)
                         )
 
                         ExposedDropdownMenu(

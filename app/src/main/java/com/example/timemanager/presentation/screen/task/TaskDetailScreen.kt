@@ -293,7 +293,7 @@ fun DurationPicker(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(enabled = true)
+                .menuAnchor()
         )
 
         ExposedDropdownMenu(
@@ -335,7 +335,7 @@ fun PrioritySelector(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(enabled = true)
+                .menuAnchor()
         )
 
         ExposedDropdownMenu(
@@ -378,7 +378,7 @@ fun CategorySelector(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(enabled = true)
+                .menuAnchor()
         )
 
         ExposedDropdownMenu(
@@ -422,7 +422,7 @@ fun ReminderSelector(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(enabled = true)
+                .menuAnchor()
         )
 
         ExposedDropdownMenu(

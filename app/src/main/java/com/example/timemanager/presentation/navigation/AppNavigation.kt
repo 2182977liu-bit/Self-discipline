@@ -124,7 +124,7 @@ fun BottomNavigationBar(
         NavigationBarItem(
             selected = currentRoute == "tasks",
             onClick = { onNavigate("tasks") },
-            icon = { Icon(Icons.Default.Task, contentDescription = "任务") },
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = "任务") },
             label = { Text("任务") }
         )
         NavigationBarItem(

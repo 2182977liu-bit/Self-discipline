@@ -108,6 +108,10 @@ dependencies {
 
     // ==================== Core ====================
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+
+    // ==================== Location (天气) ====================
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 
     // ==================== Desugaring ====================
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")

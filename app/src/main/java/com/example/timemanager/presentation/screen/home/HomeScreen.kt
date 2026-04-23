@@ -9,157 +9,399 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.timemanager.domain.model.Priority
-import com.example.timemanager.presentation.common.components.*
-import com.example.timemanager.presentation.theme.TimeManagerTheme
+import com.example.timemanager.domain.model.CheckInType
+import com.example.timemanager.domain.model.PlanItem
+import com.example.timemanager.domain.model.PlanType
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 /**
- * 首页屏幕
- *
- * @param onNavigateToTask 导航到任务详情
- * @param onNavigateToSettings 导航到设置
- * @param viewModel ViewModel
+ * AI 生活管家首页
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onNavigateToTask: (String) -> Unit,
+    onNavigateToTask: (String) -> Unit = {},
     onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // AI输入对话框
-    if (uiState.showAIInput) {
-        AIInputDialog(
-            inputText = uiState.aiInputText,
+    // 目标输入对话框
+    if (uiState.showGoalInput) {
+        GoalInputDialog(
+            goalText = uiState.goalText,
             isLoading = uiState.isAILoading,
-            parsedTask = uiState.parsedTask,
-            onInputChange = { viewModel.onEvent(HomeEvent.UpdateAIInput(it)) },
-            onSubmit = { viewModel.onEvent(HomeEvent.SubmitAITask) },
-            onConfirm = { viewModel.onEvent(HomeEvent.ConfirmParsedTask) },
-            onDismiss = { viewModel.onEvent(HomeEvent.HideAIInput) }
+            onGoalTextChange = { viewModel.onEvent(HomeEvent.UpdateGoalText(it)) },
+            onGenerate = { viewModel.onEvent(HomeEvent.GeneratePlan) },
+            onDismiss = { viewModel.onEvent(HomeEvent.HideGoalInput) }
+        )
+    }
+
+    // 打卡确认对话框
+    if (uiState.showCheckInDialog) {
+        CheckInDialog(
+            onCheckIn = { type -> viewModel.onEvent(HomeEvent.DoCheckIn(type)) },
+            onDismiss = { viewModel.onEvent(HomeEvent.HideCheckInDialog) }
         )
     }
 
     Scaffold(
         topBar = {
-            HomeTopAppBar(
-                onRefresh = { viewModel.onEvent(HomeEvent.Refresh) },
-                onSettings = onNavigateToSettings,
-                onAIInput = { viewModel.onEvent(HomeEvent.ShowAIInput) }
+            TopAppBar(
+                title = { Text("AI 生活管家") },
+                actions = {
+                    // 天气信息
+                    if (uiState.weatherInfo.isNotEmpty()) {
+                        Text(
+                            text = uiState.weatherInfo,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "设置")
+                    }
+                }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.onEvent(HomeEvent.ShowAIInput) },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "AI创建任务"
-                )
+            if (uiState.planItems.isEmpty()) {
+                FloatingActionButton(
+                    onClick = { viewModel.onEvent(HomeEvent.ShowGoalInput) },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = "设置目标")
+                }
             }
         }
     ) { padding ->
-        HomeContent(
-            uiState = uiState,
-            onTaskClick = onNavigateToTask,
-            onCompleteTask = { viewModel.onEvent(HomeEvent.CompleteTask(it)) },
-            onRequestAI = { viewModel.onEvent(HomeEvent.RequestAISuggestion) },
-            onDismissAI = { viewModel.onEvent(HomeEvent.DismissAISuggestion) },
-            modifier = Modifier.padding(padding)
-        )
-    }
-}
-
-/**
- * AI输入对话框
- */
-@Composable
-fun AIInputDialog(
-    inputText: String,
-    isLoading: Boolean,
-    parsedTask: com.example.timemanager.domain.model.ParsedTask?,
-    onInputChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("AI创建任务") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = onInputChange,
-                    placeholder = { Text("描述你的任务，例如：明天下午3点开会，提前15分钟提醒") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    maxLines = 5
-                )
-
-                if (isLoading) {
-                    Row(
-                        modifier = Modifier.padding(top = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("AI正在解析...", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                parsedTask?.let { task ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 目标卡片
+            if (uiState.currentGoal.isNotEmpty()) {
+                item {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("解析结果:", style = MaterialTheme.typography.labelMedium)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("标题: ${task.title}", style = MaterialTheme.typography.bodyMedium)
-                            task.description?.let { Text("描述: $it", style = MaterialTheme.typography.bodySmall) }
-                            task.durationMinutes?.let { Text("时长: $it 分钟", style = MaterialTheme.typography.bodySmall) }
-                            task.priority?.let { p ->
-                                val priorityName = when (p) {
-                                    Priority.HIGH -> "高"
-                                    Priority.MEDIUM -> "中"
-                                    Priority.LOW -> "低"
-                                    Priority.URGENT -> "紧急"
-                                }
-                                Text("优先级: $priorityName", style = MaterialTheme.typography.bodySmall)
-                            }
-                            task.category?.let { Text("分类: $it", style = MaterialTheme.typography.bodySmall) }
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("🎯 我的目标", style = MaterialTheme.typography.labelMedium)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                uiState.currentGoal,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             }
+
+            // 今日状态概览
+            item {
+                TodayStatusCard(
+                    steps = uiState.todaySteps,
+                    checkInCount = uiState.todayCheckIns.size,
+                    weatherInfo = uiState.weatherInfo,
+                    onRefreshWeather = { viewModel.onEvent(HomeEvent.RefreshWeather) }
+                )
+            }
+
+            // 快捷打卡按钮
+            item {
+                QuickCheckInButtons(
+                    onCheckIn = { viewModel.onEvent(HomeEvent.ShowCheckInDialog) }
+                )
+            }
+
+            // AI 加载中
+            if (uiState.isAILoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("AI 正在为你规划今天...", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+
+            // 今日计划
+            if (uiState.planItems.isNotEmpty()) {
+                item {
+                    Text(
+                        "📋 今日计划",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                items(uiState.planItems) { item ->
+                    PlanItemCard(item = item)
+                }
+            }
+
+            // 没有计划时的空状态
+            if (uiState.planItems.isEmpty() && !uiState.isAILoading) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 32.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("✨", fontSize = 48.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "告诉 AI 你的目标",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "例如：未来一周学习C++，早睡早起，轻度运动改善健康",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            FilledTonalButton(
+                                onClick = { viewModel.onEvent(HomeEvent.ShowGoalInput) }
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("开始规划")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 错误提示
+            uiState.error?.let { error ->
+                item {
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = { viewModel.onEvent(HomeEvent.ClearError) }) {
+                                Text("关闭")
+                            }
+                        },
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text(error)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 今日状态卡片
+ */
+@Composable
+fun TodayStatusCard(
+    steps: Int,
+    checkInCount: Int,
+    weatherInfo: String,
+    onRefreshWeather: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            StatusItem(label = "今日步数", value = "$steps 步")
+            StatusItem(label = "今日打卡", value = "$checkInCount 次")
+            StatusItem(
+                label = "天气",
+                value = weatherInfo.ifEmpty { "点击刷新" },
+                onClick = if (weatherInfo.isEmpty()) onRefreshWeather else null
+            )
+        }
+    }
+}
+
+@Composable
+fun StatusItem(label: String, value: String, onClick: (() -> Unit)? = null) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = if (onClick != null) Modifier.then(
+            Modifier.padding(4.dp)
+        ) else Modifier
+    ) {
+        Text(value, style = MaterialTheme.typography.titleMedium)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * 快捷打卡按钮
+ */
+@Composable
+fun QuickCheckInButtons(onCheckIn: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text("快捷打卡", style = MaterialTheme.typography.labelMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                CheckInChip(icon = "🌙", label = "入睡", onClick = onCheckIn)
+                CheckInChip(icon = "☀️", label = "醒来", onClick = onCheckIn)
+                CheckInChip(icon = "🏃", label = "运动", onClick = onCheckIn)
+                CheckInChip(icon = "🍽️", label = "吃饭", onClick = onCheckIn)
+                CheckInChip(icon = "📖", label = "学习", onClick = onCheckIn)
+            }
+        }
+    }
+}
+
+@Composable
+fun CheckInChip(icon: String, label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.padding(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(icon)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+/**
+ * 计划项卡片
+ */
+@Composable
+fun PlanItemCard(item: PlanItem) {
+    val typeColor = when (item.type) {
+        PlanType.SLEEP, PlanType.WAKE_UP -> MaterialTheme.colorScheme.tertiary
+        PlanType.MEAL -> MaterialTheme.colorScheme.secondary
+        PlanType.EXERCISE -> MaterialTheme.colorScheme.primary
+        PlanType.STUDY -> MaterialTheme.colorScheme.tertiaryContainer
+        PlanType.REST -> MaterialTheme.colorScheme.surfaceVariant
+        PlanType.OTHER -> MaterialTheme.colorScheme.outline
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 时间
+            Text(
+                item.time,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(50.dp)
+            )
+
+            // 类型色条
+            Surface(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(40.dp),
+                color = typeColor
+            ) {}
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // 标题和备注
+            Column(modifier = Modifier.weight(1f)) {
+                Text(item.title, style = MaterialTheme.typography.bodyLarge)
+                if (item.note.isNotEmpty()) {
+                    Text(
+                        item.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // 时长
+            if (item.duration > 0) {
+                Text(
+                    "${item.duration}分钟",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 目标输入对话框
+ */
+@Composable
+fun GoalInputDialog(
+    goalText: String,
+    isLoading: Boolean,
+    onGoalTextChange: (String) -> Unit,
+    onGenerate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("设定你的目标") },
+        text = {
+            OutlinedTextField(
+                value = goalText,
+                onValueChange = onGoalTextChange,
+                placeholder = { Text("例如：未来一周学习C++，早睡早起，轻度运动改善健康") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5
+            )
         },
         confirmButton = {
-            when {
-                parsedTask != null -> {
-                    TextButton(onClick = onConfirm) {
-                        Text("确认创建")
-                    }
-                }
-                isLoading -> {
-                    TextButton(onClick = {}, enabled = false) {
-                        Text("解析中...")
-                    }
-                }
-                else -> {
-                    TextButton(onClick = onSubmit, enabled = inputText.isNotBlank()) {
-                        Text("解析")
-                    }
+            Button(
+                onClick = onGenerate,
+                enabled = goalText.isNotBlank() && !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("生成计划")
                 }
             }
         },
@@ -172,219 +414,37 @@ fun AIInputDialog(
 }
 
 /**
- * 首页顶部应用栏
+ * 打卡选择对话框
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopAppBar(
-    onRefresh: () -> Unit,
-    onSettings: () -> Unit,
-    onAIInput: () -> Unit
+fun CheckInDialog(
+    onCheckIn: (CheckInType) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    TopAppBar(
-        title = {
-            Text("今日任务")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("打卡") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CheckInType.entries.forEach { type ->
+                    Card(
+                        onClick = { onCheckIn(type); onDismiss() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(type.icon, fontSize = 24.sp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(type.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
         },
-        actions = {
-            IconButton(onClick = onAIInput) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "AI创建任务"
-                )
-            }
-            IconButton(onClick = onRefresh) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "刷新"
-                )
-            }
-            IconButton(onClick = onSettings) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "设置"
-                )
-            }
-        }
+        confirmButton = {}
     )
-}
-
-/**
- * 首页内容
- */
-@Composable
-fun HomeContent(
-    uiState: HomeUiState,
-    onTaskClick: (String) -> Unit,
-    onCompleteTask: (String) -> Unit,
-    onRequestAI: () -> Unit,
-    onDismissAI: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    when {
-        uiState.isLoading -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
-
-        uiState.error != null -> {
-            ErrorStateView(
-                message = uiState.error!!,
-                onRetry = { /* TODO: 重试逻辑 */ },
-                modifier = modifier
-            )
-        }
-
-        !uiState.hasTasks -> {
-            EmptyStateView(
-                title = "暂无任务",
-                message = "点击右下角按钮添加新任务",
-                modifier = modifier,
-                action = {
-                    FilledTonalButton(onClick = onRequestAI) {
-                        Text("获取AI建议")
-                    }
-                }
-            )
-        }
-
-        else -> {
-            LazyColumn(
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // 统计卡片
-                item {
-                    StatsCard(
-                        pendingCount = uiState.pendingCount,
-                        completedCount = uiState.completedCount,
-                        onRequestAI = onRequestAI
-                    )
-                }
-
-                // AI建议卡片
-                if (uiState.showAISuggestion && uiState.aiSuggestion != null) {
-                    item {
-                        AISuggestionCard(
-                            suggestion = uiState.aiSuggestion!!,
-                            onDismiss = onDismissAI
-                        )
-                    }
-                }
-
-                // AI加载指示器
-                if (uiState.isAILoading) {
-                    item {
-                        AILoadingIndicator(message = "AI正在分析您的任务...")
-                    }
-                }
-
-                // 任务列表
-                items(
-                    items = uiState.tasks,
-                    key = { it.id }
-                ) { task ->
-                    TaskCard(
-                        task = task,
-                        onClick = { onTaskClick(task.id) },
-                        onComplete = { onCompleteTask(task.id) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * 统计卡片
- */
-@Composable
-fun StatsCard(
-    pendingCount: Int,
-    completedCount: Int,
-    onRequestAI: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // 待办数量
-            StatItem(
-                label = "待办",
-                value = pendingCount.toString(),
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            // 分隔线
-            HorizontalDivider(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(40.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-
-            // 已完成数量
-            StatItem(
-                label = "已完成",
-                value = completedCount.toString(),
-                color = com.example.timemanager.presentation.theme.Success
-            )
-
-            // 分隔线
-            HorizontalDivider(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(40.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-
-            // AI建议按钮
-            TextButton(onClick = onRequestAI) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("AI建议")
-            }
-        }
-    }
-}
-
-/**
- * 统计项
- */
-@Composable
-fun StatItem(
-    label: String,
-    value: String,
-    color: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.headlineMedium,
-            color = color
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
 }

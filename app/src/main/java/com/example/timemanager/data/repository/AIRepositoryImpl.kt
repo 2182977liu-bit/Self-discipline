@@ -245,6 +245,116 @@ class AIRepositoryImpl @Inject constructor(
         return !apiKey.isNullOrBlank()
     }
 
+    override suspend fun generateLifePlan(
+        goal: String,
+        weather: String,
+        temperature: String,
+        todayCheckIns: String,
+        stepsToday: Int
+    ): Result<DailyPlan> {
+        return try {
+            val apiKey = userPreferences.kimiApiKey.first()
+            if (apiKey.isNullOrBlank()) {
+                return Result.failure(IllegalStateException("请先配置API密钥"))
+            }
+
+            val provider = getCurrentProvider()
+            val model = getModel(provider)
+            val apiService = createApiService()
+
+            val today = java.time.LocalDate.now().toString()
+
+            val systemPrompt = """
+                你是一个AI生活管家。根据用户的目标和当前状态，生成今日计划。
+
+                当前信息：
+                - 天气：$weather，温度：$temperature
+                - 今日已打卡：$todayCheckIns
+                - 今日步数：$stepsToday
+
+                请严格按照以下JSON格式返回，不要包含其他内容：
+                {
+                  "planItems": [
+                    {"time": "07:00", "title": "起床", "type": "WAKE_UP", "duration": 5, "note": "喝一杯温水"},
+                    {"time": "07:30", "title": "晨跑30分钟", "type": "EXERCISE", "duration": 30, "note": "注意拉伸"},
+                    {"time": "08:00", "title": "早餐", "type": "MEAL", "duration": 20, "note": "鸡蛋+牛奶+全麦面包"},
+                    {"time": "09:00", "title": "学习C++", "type": "STUDY", "duration": 120, "note": "第1章 基础语法"},
+                    {"time": "12:00", "title": "午餐", "type": "MEAL", "duration": 30, "note": "补充蛋白质"},
+                    {"time": "13:00", "title": "午休", "type": "REST", "duration": 30, "note": ""},
+                    {"time": "14:00", "title": "学习C++", "type": "STUDY", "duration": 120, "note": "第2章 控制流"},
+                    {"time": "17:00", "title": "散步/轻度运动", "type": "EXERCISE", "duration": 30, "note": "饭后散步"},
+                    {"time": "18:30", "title": "晚餐", "type": "MEAL", "duration": 30, "note": "清淡饮食"},
+                    {"time": "20:00", "title": "复习总结", "type": "STUDY", "duration": 60, "note": ""},
+                    {"time": "22:00", "title": "准备入睡", "type": "SLEEP", "duration": 0, "note": "放下手机"}
+                  ]
+                }
+
+                注意：
+                1. type 只能是 SLEEP/WAKE_UP/MEAL/EXERCISE/STUDY/REST/OTHER
+                2. 运动安排要考虑天气（雨天建议室内运动）
+                3. 三餐时间要合理（7-9点早餐，11-13点午餐，17-19点晚餐）
+                4. 如果用户亚健康，运动要轻量（散步、瑜伽），不要剧烈运动
+                5. 保证22:00-22:30之间入睡
+                6. 每个计划项都要有合理的时长
+            """.trimIndent()
+
+            val request = ChatRequest(
+                model = model,
+                messages = listOf(
+                    Message(role = "system", content = systemPrompt),
+                    Message(role = "user", content = "我的目标：$goal")
+                ),
+                temperature = 0.5f,
+                maxTokens = 2000
+            )
+
+            val response = apiService.createChatCompletion(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                val content = response.body()!!.choices.firstOrNull()?.message?.content ?: ""
+                parseDailyPlanFromJson(content, today, weather, temperature)
+            } else {
+                Result.failure(Exception("API请求失败: ${response.code()} - ${response.errorBody()?.string()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun parseDailyPlanFromJson(
+        json: String,
+        date: String,
+        weather: String,
+        temperature: String
+    ): Result<DailyPlan> {
+        return try {
+            val jsonStart = json.indexOf("{")
+            val jsonEnd = json.lastIndexOf("}") + 1
+            val jsonContent = if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                json.substring(jsonStart, jsonEnd)
+            } else {
+                json
+            }
+
+            val jsonObject = gson.fromJson(jsonContent, com.google.gson.JsonObject::class.java)
+            val planItemsJson = jsonObject.getAsJsonArray("planItems")
+
+            val planItemsStr = gson.toJson(planItemsJson)
+
+            Result.success(
+                DailyPlan(
+                    id = java.util.UUID.randomUUID().toString(),
+                    date = date,
+                    weather = weather,
+                    temperature = temperature,
+                    planItems = planItemsStr
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(Exception("解析AI计划失败: ${e.message}"))
+        }
+    }
+
     // ==================== 辅助方法 ====================
 
     private fun parseTaskFromJson(json: String): Result<ParsedTask> {

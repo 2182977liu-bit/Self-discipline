@@ -2,207 +2,151 @@ package com.example.timemanager.presentation.screen.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.timemanager.domain.model.Task
-import com.example.timemanager.domain.model.TaskStatus
-import com.example.timemanager.domain.usecase.ai.GetAISuggestionUseCase
-import com.example.timemanager.domain.usecase.ai.ParseTaskUseCase
-import com.example.timemanager.domain.usecase.task.AddTaskUseCase
-import com.example.timemanager.domain.usecase.task.CompleteTaskUseCase
-import com.example.timemanager.domain.usecase.task.GetTodayPendingTasksUseCase
+import com.example.timemanager.data.remote.weather.WeatherApiService
+import com.example.timemanager.domain.model.CheckIn
+import com.example.timemanager.domain.model.CheckInType
+import com.example.timemanager.domain.model.PlanItem
+import com.example.timemanager.domain.repository.AIRepository
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Duration
 import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
 
-/**
- * 首页ViewModel
- *
- * 管理首页的数据和业务逻辑
- */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getTodayPendingTasksUseCase: GetTodayPendingTasksUseCase,
-    private val completeTaskUseCase: CompleteTaskUseCase,
-    private val getAISuggestionUseCase: GetAISuggestionUseCase,
-    private val parseTaskUseCase: ParseTaskUseCase,
-    private val addTaskUseCase: AddTaskUseCase
+    private val aiRepository: AIRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private val gson = Gson()
+    private val planItemType = object : TypeToken<List<PlanItem>>() {}.type
+
     init {
-        loadTasks()
+        loadWeather()
     }
 
-    /**
-     * 处理事件
-     */
     fun onEvent(event: HomeEvent) {
         when (event) {
-            is HomeEvent.Refresh -> loadTasks()
-            is HomeEvent.CompleteTask -> completeTask(event.taskId)
-            is HomeEvent.RequestAISuggestion -> requestAISuggestion()
-            is HomeEvent.DismissAISuggestion -> dismissAISuggestion()
+            is HomeEvent.Refresh -> {}
             is HomeEvent.ClearError -> clearError()
-
-            // AI快速创建任务
-            is HomeEvent.ShowAIInput -> showAIInput()
-            is HomeEvent.HideAIInput -> hideAIInput()
-            is HomeEvent.UpdateAIInput -> updateAIInput(event.text)
-            is HomeEvent.SubmitAITask -> submitAITask()
-            is HomeEvent.ConfirmParsedTask -> confirmParsedTask()
-            is HomeEvent.DismissParsedTask -> dismissParsedTask()
+            is HomeEvent.ShowGoalInput -> showGoalInput()
+            is HomeEvent.HideGoalInput -> hideGoalInput()
+            is HomeEvent.UpdateGoalText -> updateGoalText(event.text)
+            is HomeEvent.GeneratePlan -> generatePlan()
+            is HomeEvent.RefreshWeather -> loadWeather()
+            is HomeEvent.ShowCheckInDialog -> showCheckInDialog()
+            is HomeEvent.HideCheckInDialog -> hideCheckInDialog()
+            is HomeEvent.DoCheckIn -> doCheckIn(event.type)
         }
     }
 
-    /**
-     * 加载今日任务
-     */
-    private fun loadTasks() {
+    private fun showGoalInput() {
+        _uiState.update { it.copy(showGoalInput = true) }
+    }
+
+    private fun hideGoalInput() {
+        _uiState.update { it.copy(showGoalInput = false, goalText = "") }
+    }
+
+    private fun updateGoalText(text: String) {
+        _uiState.update { it.copy(goalText = text) }
+    }
+
+    private fun generatePlan() {
+        val goal = _uiState.value.goalText.trim()
+        if (goal.isBlank()) return
+
         viewModelScope.launch {
-            getTodayPendingTasksUseCase()
-                .onStart {
-                    _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isAILoading = true, error = null) }
+
+            val weather = _uiState.value.weatherInfo
+            val checkInSummary = _uiState.value.todayCheckIns.joinToString(", ") {
+                "${it.type.label}@${it.timestamp.hour}:${String.format("%02d", it.timestamp.minute)}"
+            }
+
+            aiRepository.generateLifePlan(
+                goal = goal,
+                weather = weather.ifEmpty { "未知" },
+                temperature = "未知",
+                todayCheckIns = checkInSummary.ifEmpty { "无" },
+                stepsToday = _uiState.value.todaySteps
+            ).onSuccess { plan ->
+                val items: List<PlanItem> = try {
+                    gson.fromJson(plan.planItems, planItemType)
+                } catch (e: Exception) {
+                    emptyList()
                 }
-                .catch { e ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message ?: "加载任务失败"
-                        )
-                    }
+                _uiState.update {
+                    it.copy(
+                        isAILoading = false,
+                        currentGoal = goal,
+                        planItems = items,
+                        showGoalInput = false,
+                        goalText = ""
+                    )
                 }
-                .collect { tasks ->
-                    _uiState.update {
-                        it.copy(
-                            tasks = tasks,
-                            isLoading = false,
-                            completedCount = tasks.count { task -> task.status == TaskStatus.COMPLETED }
-                        )
-                    }
+            }.onFailure { e ->
+                _uiState.update {
+                    it.copy(
+                        isAILoading = false,
+                        error = e.message ?: "生成计划失败"
+                    )
                 }
+            }
         }
     }
 
-    /**
-     * 完成任务
-     */
-    private fun completeTask(taskId: String) {
+    private fun loadWeather() {
         viewModelScope.launch {
-            completeTaskUseCase(taskId)
+            try {
+                val retrofit = retrofit2.Retrofit.Builder()
+                    .baseUrl(WeatherApiService.BASE_URL)
+                    .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+                    .build()
+                val weatherApi = retrofit.create(WeatherApiService::class.java)
+
+                // 默认使用北京坐标（实际应获取用户位置）
+                val response = weatherApi.getCurrentWeather(39.9, 116.4)
+                val current = response.current
+                if (current != null) {
+                    val info = "${current.getDescription()} ${current.temperature}°C"
+                    _uiState.update { it.copy(weatherInfo = info) }
+                }
+            } catch (_: Exception) {
+                // 天气获取失败不影响使用
+            }
         }
     }
 
-    /**
-     * 请求AI建议
-     */
-    private fun requestAISuggestion() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAILoading = true) }
+    private fun showCheckInDialog() {
+        _uiState.update { it.copy(showCheckInDialog = true) }
+    }
 
-            getAISuggestionUseCase()
-                .onSuccess { suggestion ->
-                    _uiState.update {
-                        it.copy(
-                            aiSuggestion = suggestion,
-                            isAILoading = false
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(
-                            isAILoading = false,
-                            error = e.message ?: "获取AI建议失败"
-                        )
-                    }
-                }
+    private fun hideCheckInDialog() {
+        _uiState.update { it.copy(showCheckInDialog = false) }
+    }
+
+    private fun doCheckIn(type: CheckInType) {
+        val checkIn = CheckIn(
+            id = UUID.randomUUID().toString(),
+            type = type,
+            timestamp = LocalDateTime.now()
+        )
+        _uiState.update {
+            it.copy(todayCheckIns = it.todayCheckIns + checkIn)
         }
     }
 
-    /**
-     * 关闭AI建议
-     */
-    private fun dismissAISuggestion() {
-        _uiState.update { it.copy(aiSuggestion = null) }
-    }
-
-    /**
-     * 清除错误
-     */
     private fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    // ==================== AI快速创建任务 ====================
-
-    private fun showAIInput() {
-        _uiState.update { it.copy(showAIInput = true) }
-    }
-
-    private fun hideAIInput() {
-        _uiState.update { it.copy(showAIInput = false, aiInputText = "", parsedTask = null) }
-    }
-
-    private fun updateAIInput(text: String) {
-        _uiState.update { it.copy(aiInputText = text) }
-    }
-
-    private fun submitAITask() {
-        val input = _uiState.value.aiInputText.trim()
-        if (input.isBlank()) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAILoading = true) }
-
-            parseTaskUseCase(input)
-                .onSuccess { parsed ->
-                    _uiState.update {
-                        it.copy(
-                            parsedTask = parsed,
-                            isAILoading = false
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(
-                            isAILoading = false,
-                            error = e.message ?: "AI解析失败"
-                        )
-                    }
-                }
-        }
-    }
-
-    private fun confirmParsedTask() {
-        val parsed = _uiState.value.parsedTask ?: return
-
-        viewModelScope.launch {
-            val task = Task(
-                id = UUID.randomUUID().toString(),
-                title = parsed.title,
-                description = parsed.description,
-                dueTime = null, // TODO: 解析时间字符串
-                duration = parsed.durationMinutes?.let { Duration.ofMinutes(it.toLong()) } ?: Duration.ofMinutes(30),
-                priority = parsed.priority ?: com.example.timemanager.domain.model.Priority.MEDIUM,
-                status = TaskStatus.TODO,
-                category = parsed.category ?: "",
-                reminderMinutes = 0,
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now()
-            )
-
-            addTaskUseCase(task)
-            hideAIInput()
-        }
-    }
-
-    private fun dismissParsedTask() {
-        _uiState.update { it.copy(parsedTask = null) }
     }
 }

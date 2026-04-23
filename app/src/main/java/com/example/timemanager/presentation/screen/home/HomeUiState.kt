@@ -1,86 +1,54 @@
 package com.example.timemanager.presentation.screen.home
 
-import com.example.timemanager.domain.model.AISuggestion
-import com.example.timemanager.domain.model.ParsedTask
-import com.example.timemanager.domain.model.Task
+import com.example.timemanager.domain.model.CheckIn
+import com.example.timemanager.domain.model.CheckInType
+import com.example.timemanager.domain.model.PlanItem
 
 /**
  * 首页UI状态
- *
- * @property isLoading 是否正在加载
- * @property tasks 今日任务列表
- * @property aiSuggestion AI建议
- * @property completedCount 今日已完成任务数
- * @property error 错误信息
- * @property isAILoading 是否正在AI处理
- * @property showAIInput 是否显示AI输入框
- * @property aiInputText AI输入文本
- * @property parsedTask AI解析结果
  */
 data class HomeUiState(
     val isLoading: Boolean = false,
-    val tasks: List<Task> = emptyList(),
-    val aiSuggestion: AISuggestion? = null,
-    val completedCount: Int = 0,
-    val error: String? = null,
     val isAILoading: Boolean = false,
-    val showAIInput: Boolean = false,
-    val aiInputText: String = "",
-    val parsedTask: ParsedTask? = null
-) {
-    /**
-     * 待办任务数量
-     */
-    val pendingCount: Int
-        get() = tasks.count { it.status != com.example.timemanager.domain.model.TaskStatus.COMPLETED }
+    val error: String? = null,
 
-    /**
-     * 是否有任务
-     */
-    val hasTasks: Boolean
-        get() = tasks.isNotEmpty()
+    // 目标
+    val currentGoal: String = "",
+    val showGoalInput: Boolean = false,
+    val goalText: String = "",
 
-    /**
-     * 是否显示AI建议
-     */
-    val showAISuggestion: Boolean
-        get() = aiSuggestion != null && !isAILoading
-}
+    // 今日计划
+    val planItems: List<PlanItem> = emptyList(),
+
+    // 天气
+    val weatherInfo: String = "",
+
+    // 打卡
+    val todayCheckIns: List<CheckIn> = emptyList(),
+    val showCheckInDialog: Boolean = false,
+
+    // 步数
+    val todaySteps: Int = 0
+)
 
 /**
  * 首页事件
  */
 sealed class HomeEvent {
-    /**
-     * 刷新数据
-     */
     data object Refresh : HomeEvent()
-
-    /**
-     * 完成任务
-     */
-    data class CompleteTask(val taskId: String) : HomeEvent()
-
-    /**
-     * 请求AI建议
-     */
-    data object RequestAISuggestion : HomeEvent()
-
-    /**
-     * 关闭AI建议
-     */
-    data object DismissAISuggestion : HomeEvent()
-
-    /**
-     * 清除错误
-     */
     data object ClearError : HomeEvent()
 
-    // AI快速创建任务事件
-    data object ShowAIInput : HomeEvent()
-    data object HideAIInput : HomeEvent()
-    data class UpdateAIInput(val text: String) : HomeEvent()
-    data object SubmitAITask : HomeEvent()
-    data object ConfirmParsedTask : HomeEvent()
-    data object DismissParsedTask : HomeEvent()
+    // 目标与计划
+    data object ShowGoalInput : HomeEvent()
+    data object HideGoalInput : HomeEvent()
+    data class UpdateGoalText(val text: String) : HomeEvent()
+    data object GeneratePlan : HomeEvent()
+
+    // 天气
+    data object RefreshWeather : HomeEvent()
+
+    // 打卡
+    data object ShowCheckInDialog : HomeEvent()
+    data object HideCheckInDialog : HomeEvent()
+    data class DoCheckIn(val type: CheckInType) : HomeEvent()
 }

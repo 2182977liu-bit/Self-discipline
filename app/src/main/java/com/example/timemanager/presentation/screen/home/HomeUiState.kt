@@ -51,4 +51,7 @@ sealed class HomeEvent {
     data object ShowCheckInDialog : HomeEvent()
     data object HideCheckInDialog : HomeEvent()
     data class DoCheckIn(val type: CheckInType) : HomeEvent()
+
+    // 计划管理
+    data object ClearPlan : HomeEvent()
 }

@@ -71,13 +71,11 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.planItems.isEmpty()) {
-                FloatingActionButton(
-                    onClick = { viewModel.onEvent(HomeEvent.ShowGoalInput) },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "设置目标")
-                }
+            FloatingActionButton(
+                onClick = { viewModel.onEvent(HomeEvent.ShowGoalInput) },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = "设置目标")
             }
         }
     ) { padding ->
@@ -148,11 +146,25 @@ fun HomeScreen(
             // 今日计划
             if (uiState.planItems.isNotEmpty()) {
                 item {
-                    Text(
-                        "📋 今日计划",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "📋 今日计划",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row {
+                            TextButton(onClick = { viewModel.onEvent(HomeEvent.ShowGoalInput) }) {
+                                Text("重新生成")
+                            }
+                            TextButton(onClick = { viewModel.onEvent(HomeEvent.ClearPlan) }) {
+                                Text("清除", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
                 }
 
                 items(uiState.planItems) { item ->

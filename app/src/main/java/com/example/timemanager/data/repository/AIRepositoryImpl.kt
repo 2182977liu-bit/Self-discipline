@@ -265,37 +265,34 @@ class AIRepositoryImpl @Inject constructor(
             val today = java.time.LocalDate.now().toString()
 
             val systemPrompt = """
-                你是一个AI生活管家。根据用户的目标和当前状态，生成今日计划。
+                你是一个AI生活管家。根据用户的目标生成计划。
 
                 当前信息：
                 - 天气：$weather，温度：$temperature
                 - 今日已打卡：$todayCheckIns
                 - 今日步数：$stepsToday
 
-                请严格按照以下JSON格式返回，不要包含其他内容：
+                重要规则：
+                1. 根据用户目标的复杂度决定计划范围，不要过度规划
+                2. 如果用户只说了简单的事（如"提醒我喝水"），就只生成1-2个提醒项，不要生成一整天计划
+                3. 如果用户有多个目标（如学习+运动+睡眠），才生成完整的一天计划
+                4. 每个计划项都要有具体的时间（HH:MM格式）
+
+                JSON格式：
                 {
                   "planItems": [
-                    {"time": "07:00", "title": "起床", "type": "WAKE_UP", "duration": 5, "note": "喝一杯温水"},
-                    {"time": "07:30", "title": "晨跑30分钟", "type": "EXERCISE", "duration": 30, "note": "注意拉伸"},
-                    {"time": "08:00", "title": "早餐", "type": "MEAL", "duration": 20, "note": "鸡蛋+牛奶+全麦面包"},
-                    {"time": "09:00", "title": "学习C++", "type": "STUDY", "duration": 120, "note": "第1章 基础语法"},
-                    {"time": "12:00", "title": "午餐", "type": "MEAL", "duration": 30, "note": "补充蛋白质"},
-                    {"time": "13:00", "title": "午休", "type": "REST", "duration": 30, "note": ""},
-                    {"time": "14:00", "title": "学习C++", "type": "STUDY", "duration": 120, "note": "第2章 控制流"},
-                    {"time": "17:00", "title": "散步/轻度运动", "type": "EXERCISE", "duration": 30, "note": "饭后散步"},
-                    {"time": "18:30", "title": "晚餐", "type": "MEAL", "duration": 30, "note": "清淡饮食"},
-                    {"time": "20:00", "title": "复习总结", "type": "STUDY", "duration": 60, "note": ""},
-                    {"time": "22:00", "title": "准备入睡", "type": "SLEEP", "duration": 0, "note": "放下手机"}
+                    {"time": "HH:MM", "title": "事项标题", "type": "类型", "duration": 分钟数, "note": "备注"}
                   ]
                 }
 
-                注意：
-                1. type 只能是 SLEEP/WAKE_UP/MEAL/EXERCISE/STUDY/REST/OTHER
-                2. 运动安排要考虑天气（雨天建议室内运动）
-                3. 三餐时间要合理（7-9点早餐，11-13点午餐，17-19点晚餐）
-                4. 如果用户亚健康，运动要轻量（散步、瑜伽），不要剧烈运动
-                5. 保证22:00-22:30之间入睡
-                6. 每个计划项都要有合理的时长
+                type 只能是：SLEEP/WAKE_UP/MEAL/EXERCISE/STUDY/REST/OTHER
+
+                注意事项：
+                - 运动要考虑天气（雨天→室内运动）
+                - 三餐时间合理（早餐7-9点，午餐11-13点，晚餐17-19点）
+                - 亚健康用户安排轻量运动（散步、瑜伽）
+                - 如果目标涉及睡眠，保证22:00-22:30入睡
+                - 只生成与用户目标相关的计划项，不要画蛇添足
             """.trimIndent()
 
             val request = ChatRequest(

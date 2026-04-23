@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用名称 -->
+    <string name="app_name">智能时间管理</string>
+
+    <!-- 底部导航 -->
+    <string name="nav_home">首页</string>
+    <string name="nav_tasks">任务</string>
+    <string name="nav_ai">AI助手</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- 首页 -->
+    <string name="home_title">今日任务</string>
+    <string name="home_empty_title">暂无任务</string>
+    <string name="home_empty_message">点击右下角按钮添加新任务</string>
+    <string name="home_stats_pending">待办</string>
+    <string name="home_stats_completed">已完成</string>
+    <string name="home_ai_suggestion">AI建议</string>
+
+    <!-- 任务 -->
+    <string name="task_add_title">新建任务</string>
+    <string name="task_edit_title">编辑任务</string>
+    <string name="task_title_label">任务标题</string>
+    <string name="task_title_required">任务标题 *</string>
+    <string name="task_description_label">任务描述</string>
+    <string name="task_due_time_label">截止时间</string>
+    <string name="task_duration_label">预计时长</string>
+    <string name="task_priority_label">优先级</string>
+    <string name="task_category_label">分类</string>
+    <string name="task_reminder_label">提醒时间</string>
+    <string name="task_save">保存</string>
+    <string name="task_delete">删除</string>
+    <string name="task_delete_confirm">确定要删除这个任务吗？此操作不可撤销。</string>
+    <string name="task_complete">完成</string>
+
+    <!-- 优先级 -->
+    <string name="priority_low">低</string>
+    <string name="priority_medium">中</string>
+    <string name="priority_high">高</string>
+    <string name="priority_urgent">紧急</string>
+
+    <!-- 状态 -->
+    <string name="status_todo">待办</string>
+    <string name="status_in_progress">进行中</string>
+    <string name="status_completed">已完成</string>
+    <string name="status_cancelled">已取消</string>
+
+    <!-- 分类 -->
+    <string name="category_work">工作</string>
+    <string name="category_study">学习</string>
+    <string name="category_life">生活</string>
+    <string name="category_health">健康</string>
+    <string name="category_entertainment">娱乐</string>
+    <string name="category_other">其他</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_ai_title">AI设置</string>
+    <string name="settings_api_key_label">Kimi API密钥</string>
+    <string name="settings_api_key_hint">sk-...</string>
+    <string name="settings_api_key_valid">API密钥已配置</string>
+    <string name="settings_api_key_invalid">API密钥格式不正确</string>
+    <string name="settings_api_key_get">获取密钥</string>
+    <string name="settings_validate">验证密钥</string>
+    <string name="settings_notification_title">通知设置</string>
+    <string name="settings_notification_enabled">启用通知</string>
+    <string name="settings_notification_enabled_desc">接收任务提醒和AI建议通知</string>
+    <string name="settings_sound_enabled">通知声音</string>
+    <string name="settings_sound_enabled_desc">播放提醒声音</string>
+    <string name="settings_vibration_enabled">振动提醒</string>
+    <string name="settings_vibration_enabled_desc">收到通知时振动</string>
+    <string name="settings_reminder_title">提醒设置</string>
+    <string name="settings_default_reminder">默认提前提醒时间</string>
+    <string name="settings_health_title">健康提醒</string>
+    <string name="settings_water_reminder">喝水提醒</string>
+    <string name="settings_water_reminder_desc">定时提醒喝水</string>
+    <string name="settings_water_interval">提醒间隔</string>
+    <string name="settings_about_title">关于</string>
+    <string name="settings_version">版本</string>
+
+    <!-- 提醒 -->
+    <string name="reminder_water_message">该喝水了！保持每天8杯水的好习惯~</string>
+    <string name="reminder_exercise_message">久坐伤身，起来活动一下吧！</string>
+    <string name="reminder_rest_message">休息一下，让眼睛放松~</string>
+
+    <!-- 通用 -->
+    <string name="loading">加载中...</string>
+    <string name="error_network">网络请求失败</string>
+    <string name="error_unknown">发生未知错误</string>
+    <string name="retry">重试</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="save">保存</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="search">搜索</string>
+    <string name="refresh">刷新</string>
+    <string name="not_set">未设置</string>
+    <string name="minutes">分钟</string>
+    <string name="hours">小时</string>
+</resources>

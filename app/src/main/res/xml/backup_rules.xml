@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    备份规则 (Android 12以下)
+    定义完整备份时包含/排除的数据
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="."/>
+    <exclude domain="sharedpref" path="user_preferences.xml"/>
+    <exclude domain="database" path="time_manager.db"/>
+</full-backup-content>

@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.timemanager.domain.model.Priority
 import com.example.timemanager.presentation.common.components.*
 import com.example.timemanager.presentation.theme.TimeManagerTheme
 
@@ -33,21 +32,35 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // AI输入对话框
+    if (uiState.showAIInput) {
+        AIInputDialog(
+            inputText = uiState.aiInputText,
+            isLoading = uiState.isAILoading,
+            parsedTask = uiState.parsedTask,
+            onInputChange = { viewModel.onEvent(HomeEvent.UpdateAIInput(it)) },
+            onSubmit = { viewModel.onEvent(HomeEvent.SubmitAITask) },
+            onConfirm = { viewModel.onEvent(HomeEvent.ConfirmParsedTask) },
+            onDismiss = { viewModel.onEvent(HomeEvent.HideAIInput) }
+        )
+    }
+
     Scaffold(
         topBar = {
             HomeTopAppBar(
                 onRefresh = { viewModel.onEvent(HomeEvent.Refresh) },
-                onSettings = onNavigateToSettings
+                onSettings = onNavigateToSettings,
+                onAIInput = { viewModel.onEvent(HomeEvent.ShowAIInput) }
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { onNavigateToTask("new") },
+                onClick = { viewModel.onEvent(HomeEvent.ShowAIInput) },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "添加任务"
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "AI创建任务"
                 )
             }
         }
@@ -64,19 +77,120 @@ fun HomeScreen(
 }
 
 /**
+ * AI输入对话框
+ */
+@Composable
+fun AIInputDialog(
+    inputText: String,
+    isLoading: Boolean,
+    parsedTask: com.example.timemanager.domain.model.ParsedTask?,
+    onInputChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("AI创建任务") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = onInputChange,
+                    placeholder = { Text("描述你的任务，例如：明天下午3点开会，提前15分钟提醒") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 5
+                )
+
+                if (isLoading) {
+                    Row(
+                        modifier = Modifier.padding(top = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("AI正在解析...", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                parsedTask?.let { task ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("解析结果:", style = MaterialTheme.typography.labelMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("标题: ${task.title}", style = MaterialTheme.typography.bodyMedium)
+                            task.description?.let { Text("描述: $it", style = MaterialTheme.typography.bodySmall) }
+                            task.durationMinutes?.let { Text("时长: $it 分钟", style = MaterialTheme.typography.bodySmall) }
+                            task.priority?.let { p ->
+                                val priorityName = when (p) {
+                                    Priority.HIGH -> "高"
+                                    Priority.MEDIUM -> "中"
+                                    Priority.LOW -> "低"
+                                }
+                                Text("优先级: $priorityName", style = MaterialTheme.typography.bodySmall)
+                            }
+                            task.category?.let { Text("分类: $it", style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            when {
+                parsedTask != null -> {
+                    TextButton(onClick = onConfirm) {
+                        Text("确认创建")
+                    }
+                }
+                isLoading -> {
+                    TextButton(onClick = {}, enabled = false) {
+                        Text("解析中...")
+                    }
+                }
+                else -> {
+                    TextButton(onClick = onSubmit, enabled = inputText.isNotBlank()) {
+                        Text("解析")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+/**
  * 首页顶部应用栏
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopAppBar(
     onRefresh: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onAIInput: () -> Unit
 ) {
     TopAppBar(
         title = {
             Text("今日任务")
         },
         actions = {
+            IconButton(onClick = onAIInput) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "AI创建任务"
+                )
+            }
             IconButton(onClick = onRefresh) {
                 Icon(
                     imageVector = Icons.Default.Refresh,

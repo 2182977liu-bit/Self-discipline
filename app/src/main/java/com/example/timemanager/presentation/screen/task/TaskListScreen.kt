@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,28 +30,34 @@ fun TaskListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf<TaskStatus?>(null) }
 
     Scaffold(
         topBar = {
-            TaskListTopAppBar(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { 
-                    searchQuery = it
-                    viewModel.onEvent(TaskEvent.Search(it))
-                },
-                selectedFilter = selectedFilter,
-                onFilterChange = { 
-                    selectedFilter = it
-                    viewModel.onEvent(TaskEvent.FilterByStatus(it))
-                }
-            )
+            if (uiState.isSelectionMode) {
+                SelectionTopAppBar(
+                    selectedCount = uiState.selectedTaskIds.size,
+                    totalCount = uiState.tasks.size,
+                    onSelectAll = { viewModel.onEvent(TaskEvent.SelectAllTasks) },
+                    onDelete = { viewModel.onEvent(TaskEvent.DeleteSelectedTasks) },
+                    onExit = { viewModel.onEvent(TaskEvent.ExitSelectionMode) }
+                )
+            } else {
+                TaskListTopAppBar(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = {
+                        searchQuery = it
+                        viewModel.onEvent(TaskEvent.Search(it))
+                    }
+                )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNavigateToTask("new") }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "添加任务")
+            if (!uiState.isSelectionMode) {
+                FloatingActionButton(
+                    onClick = { onNavigateToTask("new") }
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "添加任务")
+                }
             }
         }
     ) { padding ->
@@ -61,8 +67,8 @@ fun TaskListScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.Center)
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
         } else if (uiState.tasks.isEmpty()) {
@@ -83,12 +89,118 @@ fun TaskListScreen(
                     items = uiState.tasks,
                     key = { it.id }
                 ) { task ->
-                    TaskCard(
+                    TaskListItem(
                         task = task,
-                        onClick = { onNavigateToTask(task.id) },
-                        onComplete = { 
+                        isSelected = task.id in uiState.selectedTaskIds,
+                        isSelectionMode = uiState.isSelectionMode,
+                        onClick = {
+                            if (uiState.isSelectionMode) {
+                                viewModel.onEvent(TaskEvent.ToggleTaskSelection(task.id))
+                            } else {
+                                onNavigateToTask(task.id)
+                            }
+                        },
+                        onLongClick = {
+                            if (!uiState.isSelectionMode) {
+                                viewModel.onEvent(TaskEvent.EnterSelectionMode)
+                                viewModel.onEvent(TaskEvent.ToggleTaskSelection(task.id))
+                            }
+                        },
+                        onComplete = {
                             viewModel.onEvent(TaskEvent.DeleteTask(task.id))
                         }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 选择模式顶部栏
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectionTopAppBar(
+    selectedCount: Int,
+    totalCount: Int,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+    onExit: () -> Unit
+) {
+    TopAppBar(
+        title = { Text("已选择 $selectedCount / $totalCount 项") },
+        navigationIcon = {
+            IconButton(onClick = onExit) {
+                Icon(Icons.Default.Close, contentDescription = "取消选择")
+            }
+        },
+        actions = {
+            TextButton(onClick = onSelectAll) {
+                Text("全选")
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "删除选中",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    )
+}
+
+/**
+ * 任务列表项（支持选择模式）
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TaskListItem(
+    task: com.example.timemanager.domain.model.Task,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onComplete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onClick() }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                task.dueTime?.let {
+                    Text(
+                        text = it.format(java.time.format.DateTimeFormatter.ofPattern("MM/dd HH:mm")),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (!isSelectionMode) {
+                IconButton(onClick = onComplete) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "完成",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -103,9 +215,7 @@ fun TaskListScreen(
 @Composable
 fun TaskListTopAppBar(
     searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    selectedFilter: TaskStatus?,
-    onFilterChange: (TaskStatus?) -> Unit
+    onSearchQueryChange: (String) -> Unit
 ) {
     var showSearch by remember { mutableStateOf(false) }
 

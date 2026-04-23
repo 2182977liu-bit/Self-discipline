@@ -1,6 +1,7 @@
 package com.example.timemanager.presentation.screen.home
 
 import com.example.timemanager.domain.model.AISuggestion
+import com.example.timemanager.domain.model.ParsedTask
 import com.example.timemanager.domain.model.Task
 
 /**
@@ -11,6 +12,10 @@ import com.example.timemanager.domain.model.Task
  * @property aiSuggestion AI建议
  * @property completedCount 今日已完成任务数
  * @property error 错误信息
+ * @property isAILoading 是否正在AI处理
+ * @property showAIInput 是否显示AI输入框
+ * @property aiInputText AI输入文本
+ * @property parsedTask AI解析结果
  */
 data class HomeUiState(
     val isLoading: Boolean = false,
@@ -18,7 +23,10 @@ data class HomeUiState(
     val aiSuggestion: AISuggestion? = null,
     val completedCount: Int = 0,
     val error: String? = null,
-    val isAILoading: Boolean = false
+    val isAILoading: Boolean = false,
+    val showAIInput: Boolean = false,
+    val aiInputText: String = "",
+    val parsedTask: ParsedTask? = null
 ) {
     /**
      * 待办任务数量
@@ -67,4 +75,12 @@ sealed class HomeEvent {
      * 清除错误
      */
     data object ClearError : HomeEvent()
+
+    // AI快速创建任务事件
+    data object ShowAIInput : HomeEvent()
+    data object HideAIInput : HomeEvent()
+    data class UpdateAIInput(val text: String) : HomeEvent()
+    data object SubmitAITask : HomeEvent()
+    data object ConfirmParsedTask : HomeEvent()
+    data object DismissParsedTask : HomeEvent()
 }

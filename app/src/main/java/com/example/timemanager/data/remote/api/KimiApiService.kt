@@ -17,14 +17,13 @@ interface KimiApiService {
 
     /**
      * 创建聊天完成
+     * Authorization 由 AuthInterceptor 自动添加
      *
-     * @param authorization Bearer token (API Key)
      * @param request 聊天请求
      * @return 聊天响应
      */
     @POST("v1/chat/completions")
     suspend fun createChatCompletion(
-        @Header("Authorization") authorization: String,
         @Body request: ChatRequest
     ): Response<ChatResponse>
 

@@ -12,6 +12,8 @@ import java.time.LocalDateTime
  * @property isLoading 是否正在加载
  * @property tasks 任务列表
  * @property selectedTask 选中的任务
+ * @property selectedTaskIds 批量选中的任务ID
+ * @property isSelectionMode 是否处于选择模式
  * @property searchQuery 搜索关键词
  * @property filterStatus 筛选状态
  * @property isAIParsing 是否正在AI解析
@@ -22,6 +24,8 @@ data class TaskUiState(
     val isLoading: Boolean = false,
     val tasks: List<Task> = emptyList(),
     val selectedTask: Task? = null,
+    val selectedTaskIds: Set<String> = emptySet(),
+    val isSelectionMode: Boolean = false,
     val searchQuery: String = "",
     val filterStatus: TaskStatus? = null,
     val isAIParsing: Boolean = false,
@@ -74,6 +78,13 @@ sealed class TaskEvent {
     data class Search(val query: String) : TaskEvent()
     data class FilterByStatus(val status: TaskStatus?) : TaskEvent()
     data object Refresh : TaskEvent()
+
+    // 批量选择事件
+    data object EnterSelectionMode : TaskEvent()
+    data object ExitSelectionMode : TaskEvent()
+    data class ToggleTaskSelection(val taskId: String) : TaskEvent()
+    data object SelectAllTasks : TaskEvent()
+    data object DeleteSelectedTasks : TaskEvent()
 
     // 任务详情事件
     data class LoadTask(val taskId: String) : TaskEvent()

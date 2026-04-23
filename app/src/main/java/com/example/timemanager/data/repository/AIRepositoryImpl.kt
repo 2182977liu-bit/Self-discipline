@@ -64,13 +64,13 @@ class AIRepositoryImpl @Inject constructor(
                 maxTokens = 500
             )
 
-            val response = kimiApiService.createChatCompletion("Bearer $apiKey", request)
+            val response = kimiApiService.createChatCompletion(request)
 
             if (response.isSuccessful && response.body() != null) {
                 val content = response.body()!!.choices.firstOrNull()?.message?.content ?: ""
                 parseTaskFromJson(content)
             } else {
-                Result.failure(Exception("API请求失败: ${response.code()}"))
+                Result.failure(Exception("API请求失败: ${response.code()} - ${response.errorBody()?.string()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -119,13 +119,13 @@ class AIRepositoryImpl @Inject constructor(
                 maxTokens = 1000
             )
 
-            val response = kimiApiService.createChatCompletion("Bearer $apiKey", request)
+            val response = kimiApiService.createChatCompletion(request)
 
             if (response.isSuccessful && response.body() != null) {
                 val content = response.body()!!.choices.firstOrNull()?.message?.content ?: ""
                 parseSuggestionFromJson(content)
             } else {
-                Result.failure(Exception("API请求失败: ${response.code()}"))
+                Result.failure(Exception("API请求失败: ${response.code()} - ${response.errorBody()?.string()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

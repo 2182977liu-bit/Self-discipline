@@ -56,6 +56,13 @@ class TaskViewModel @Inject constructor(
             is TaskEvent.FilterByStatus -> filterByStatus(event.status)
             is TaskEvent.Refresh -> loadTasks()
 
+            // 批量选择事件
+            is TaskEvent.EnterSelectionMode -> enterSelectionMode()
+            is TaskEvent.ExitSelectionMode -> exitSelectionMode()
+            is TaskEvent.ToggleTaskSelection -> toggleTaskSelection(event.taskId)
+            is TaskEvent.SelectAllTasks -> selectAllTasks()
+            is TaskEvent.DeleteSelectedTasks -> deleteSelectedTasks()
+
             // 任务详情事件
             is TaskEvent.LoadTask -> loadTask(event.taskId)
             is TaskEvent.UpdateTitle -> updateTitle(event.title)
@@ -114,6 +121,43 @@ class TaskViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(filterStatus = status) }
             // TODO: 实现筛选逻辑
+        }
+    }
+
+    // ==================== 批量选择操作 ====================
+
+    private fun enterSelectionMode() {
+        _uiState.update { it.copy(isSelectionMode = true) }
+    }
+
+    private fun exitSelectionMode() {
+        _uiState.update { it.copy(isSelectionMode = false, selectedTaskIds = emptySet()) }
+    }
+
+    private fun toggleTaskSelection(taskId: String) {
+        _uiState.update { state ->
+            val newSelectedIds = if (taskId in state.selectedTaskIds) {
+                state.selectedTaskIds - taskId
+            } else {
+                state.selectedTaskIds + taskId
+            }
+            state.copy(selectedTaskIds = newSelectedIds)
+        }
+    }
+
+    private fun selectAllTasks() {
+        _uiState.update { state ->
+            state.copy(selectedTaskIds = state.tasks.map { it.id }.toSet())
+        }
+    }
+
+    private fun deleteSelectedTasks() {
+        viewModelScope.launch {
+            val selectedIds = _uiState.value.selectedTaskIds
+            selectedIds.forEach { taskId ->
+                deleteTaskUseCase(taskId)
+            }
+            exitSelectionMode()
         }
     }
 

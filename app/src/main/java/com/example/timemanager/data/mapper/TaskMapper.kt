@@ -7,13 +7,14 @@ import com.example.timemanager.domain.model.TaskStatus
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
+import javax.inject.Inject
 
 /**
  * 任务数据映射器
  *
  * 负责Entity和Domain模型之间的转换
  */
-class TaskMapper {
+class TaskMapper @Inject constructor() {
 
     /**
      * 将Entity转换为Domain模型

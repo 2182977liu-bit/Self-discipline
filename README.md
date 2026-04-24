@@ -1,30 +1,55 @@
 # Self-discipline
 
-AI 智能时间管理 APP — 基于大语言模型的智能任务管理应用
+AI 智能生活管家 — 输入目标，AI 自动规划你的一天
 
 ## 功能特性
 
-### 🤖 AI 智能助手
-- **自然语言创建任务** — 输入"明天下午3点开会，提前15分钟提醒"，AI 自动解析标题、时间、优先级
-- **多 AI 提供商支持** — Kimi、DeepSeek、通义千问、豆包、智谱 GLM、自定义（OpenAI 兼容）
-- **智能建议** — AI 根据任务列表提供时间管理优化建议
-- **时间冲突检测** — 自动发现日程重叠并给出调整建议
+### 🤖 AI 生活管家（核心功能）
+- **智能目标规划** — 输入你的目标（如"未来一周学习C++，早睡早起，轻度运动"），AI 根据复杂度自动生成计划
+- **天气感知** — 自动获取当前位置天气，雨天安排室内运动，晴天推荐户外活动
+- **闹钟 + 通知提醒** — 每个计划项自动设置闹钟，到点弹窗通知
+- **打卡追踪** — 入睡🌙 / 醒来☀️ / 运动🏃 / 吃饭🍽️ / 学习📖 一键打卡
+- **步数统计** — 实时显示今日步数（传感器低功耗检测）
 
-### 📋 任务管理
-- 任务增删改查、优先级（低/中/高/紧急）、分类
-- 批量选择与删除（长按进入选择模式）
-- 搜索与筛选
-- 任务状态管理（待办/进行中/已完成/取消）
-
-### ⏰ 智能提醒
-- 自定义提前提醒时间（5/10/15/30/60 分钟）
-- 通知、声音、振动提醒
-- 健康提醒（喝水定时提醒）
+### 🤖 多 AI 提供商
+- 支持 Kimi、DeepSeek、通义千问、豆包、智谱 GLM、自定义（OpenAI 兼容）
+- 在设置中一键切换，所有 AI 功能自动适配
 
 ### 🎨 界面
 - Material Design 3 (Material You) 风格
 - 深色/浅色/跟随系统主题
-- Compose 声明式 UI
+- 精简设计：首页 + 设置，两个 Tab 搞定一切
+
+## 使用方法
+
+### 1. 配置 AI（首次使用）
+
+打开 APP → 底部 **设置** → **AI 设置** → 选择提供商 → 输入 API 密钥
+
+| 提供商 | 获取密钥 |
+|--------|---------|
+| Kimi (月之暗面) | [platform.moonshot.cn](https://platform.moonshot.cn/) |
+| DeepSeek (深度求索) | [platform.deepseek.com](https://platform.deepseek.com/) |
+| 通义千问 (阿里) | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/) |
+| 豆包 (字节跳动) | [console.volcengine.com/ark](https://console.volcengine.com/ark) |
+| 智谱 GLM | [open.bigmodel.cn](https://open.bigmodel.cn/) |
+
+### 2. 设定目标
+
+点击右下角 ✨ 按钮 → 输入你的目标 → 点击"生成计划"
+
+**简单目标示例：**
+- "提醒我每2小时喝一次水" → AI 只生成 2-3 个喝水提醒
+- "今晚10点提醒我睡觉" → AI 只生成 1 个提醒
+
+**复杂目标示例：**
+- "未来一周学习C++，早睡早起，轻度运动改善健康" → AI 生成完整的一天计划
+
+### 3. 打卡与追踪
+
+- 首页快捷打卡按钮：入睡 / 醒来 / 运动 / 吃饭 / 学习
+- 打卡后自动发送通知确认
+- 今日步数实时显示
 
 ## 技术栈
 
@@ -36,7 +61,8 @@ AI 智能时间管理 APP — 基于大语言模型的智能任务管理应用
 | 依赖注入 | Hilt |
 | 数据库 | Room (KSP) |
 | 网络 | Retrofit + OkHttp + Gson |
-| 异步 | Kotlin Coroutines + Flow |
+| 天气 API | Open-Meteo（免费无需 key） |
+| 传感器 | Step Counter（步数）、UsageStats（屏幕使用） |
 | AI 接口 | OpenAI 兼容 `/v1/chat/completions` |
 | CI/CD | GitHub Actions |
 
@@ -44,161 +70,85 @@ AI 智能时间管理 APP — 基于大语言模型的智能任务管理应用
 
 ```
 app/src/main/java/com/example/timemanager/
-├── data/                    # 数据层
+├── data/
 │   ├── local/               # 本地存储 (Room, DataStore)
-│   ├── remote/              # 网络请求 (Retrofit, DTO)
-│   ├── mapper/              # Entity ↔ Domain 映射
+│   ├── remote/              # 网络请求 (AI API, 天气 API)
 │   └── repository/          # Repository 实现
-├── domain/                  # 领域层
-│   ├── model/               # 领域模型 (Task, AIProvider...)
+├── domain/
+│   ├── model/               # 领域模型 (Goal, DailyPlan, CheckIn, AIProvider...)
 │   ├── repository/          # Repository 接口
-│   └── usecase/             # 用例 (AI解析, 任务CRUD...)
-├── presentation/            # 表现层
-│   ├── screen/              # 各页面 (首页, 任务, 设置...)
-│   ├── navigation/          # 导航路由
-│   ├── theme/               # 主题样式
-│   └── common/              # 通用组件
-├── di/                      # Hilt 依赖注入模块
-├── service/                 # Android 服务 (闹钟, 通知, Worker)
-└── utils/                   # 工具类
+│   └── usecase/             # 用例
+├── presentation/
+│   ├── screen/              # 页面 (首页, 设置)
+│   ├── navigation/          # 导航
+│   └── theme/               # 主题
+├── service/
+│   ├── alarm/               # 闹钟调度
+│   ├── notification/        # 通知管理
+│   ├── tracking/            # 行为追踪 (步数, 屏幕使用)
+│   └── worker/              # 后台任务
+└── di/                      # Hilt 依赖注入
 ```
-
-## 支持的 AI 提供商
-
-| 提供商 | 平台 | 默认模型 |
-|--------|------|---------|
-| Kimi (月之暗面) | [platform.moonshot.cn](https://platform.moonshot.cn/) | moonshot-v1-8k |
-| DeepSeek (深度求索) | [platform.deepseek.com](https://platform.deepseek.com/) | deepseek-chat |
-| 通义千问 (阿里) | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/) | qwen-turbo |
-| 豆包 (字节跳动) | [console.volcengine.com/ark](https://console.volcengine.com/ark) | doubao-pro-32k |
-| 智谱 GLM | [open.bigmodel.cn](https://open.bigmodel.cn/) | glm-4-flash |
-| 自定义 | 任意 OpenAI 兼容 API | 自定义 |
-
-## 快速开始
-
-### 环境要求
-- Android Studio Hedgehog (2023.1.1) 或更高
-- JDK 17
-- Android SDK 34
-
-### 构建步骤
-
-```bash
-# 克隆项目
-git clone https://github.com/2182977liu-bit/Self-discipline.git
-cd Self-discipline
-
-# 构建 Debug APK
-./gradlew assembleDebug
-
-# APK 输出路径
-# app/build/outputs/apk/debug/app-debug.apk
-```
-
-### 使用 AI 功能
-
-1. 打开 APP → 设置 → AI 设置
-2. 选择 AI 提供商（推荐 DeepSeek 或 Kimi）
-3. 输入对应平台的 API 密钥
-4. 返回首页，点击 ✨ 按钮即可用自然语言创建任务
 
 ---
 
 ## 📦 如何生成 APK 安装包
 
-以下提供三种方式，从简单到进阶：
+### 方式一：从 GitHub Actions 直接下载（推荐）
 
-### 方式一：从 GitHub Actions 直接下载（推荐，无需电脑环境）
-
-每次推送代码到 `main` 分支会自动构建，直接下载即可：
-
-1. 打开项目页面 → 点击顶部 **Actions** 标签
+1. 打开 [Actions](https://github.com/2182977liu-bit/Self-discipline/actions) 标签
 2. 点击最新的 **Build Android APK** 工作流
-3. 滚动到底部 **Artifacts** 区域
-4. 下载 `app-debug.apk`
-5. 传到手机 → 安装（需开启"允许安装未知来源应用"）
+3. 滚动到底部 **Artifacts** → 下载 `app-debug.apk`
+4. 传到手机安装（需开启"允许安装未知来源应用"）
 
-> ⚠️ Debug APK 体积较大，仅供测试使用。如需发布，请使用方式三生成 Release APK。
+### 方式二：Android Studio 构建
 
-### 方式二：在电脑上用 Android Studio 构建
+1. 克隆项目：`git clone https://github.com/2182977liu-bit/Self-discipline.git`
+2. 用 Android Studio 打开项目
+3. **Build** → **Build Bundle(s) / APK(s)** → **Build APK(s)**
 
-适合需要修改代码后立即测试的场景。
-
-**准备工作：**
-1. 下载 [Android Studio](https://developer.android.com/studio)
-2. 安装 JDK 17（Android Studio 自带）
-3. 克隆项目：`git clone https://github.com/2182977liu-bit/Self-discipline.git`
-
-**构建步骤：**
-1. 用 Android Studio 打开项目根目录（`Self-discipline` 文件夹）
-2. 等待 Gradle 同步完成（首次可能需要 5-10 分钟）
-3. 菜单栏 → **Build** → **Build Bundle(s) / APK(s)** → **Build APK(s)**
-4. 右下角弹出通知 → 点击 **locate** → 找到 `app-debug.apk`
-
-### 方式三：命令行构建 Release APK（进阶）
-
-适合 CI/CD 或批量构建。
+### 方式三：命令行构建
 
 ```bash
-# 1. 克隆项目
 git clone https://github.com/2182977liu-bit/Self-discipline.git
 cd Self-discipline
-
-# 2. 构建 Debug APK（无需签名）
 ./gradlew assembleDebug
 # 输出: app/build/outputs/apk/debug/app-debug.apk
-
-# 3. 构建 Release APK（需要签名配置）
-# 先创建签名密钥（只需一次）：
-keytool -genkey -v -keystore release-key.jks \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -alias timemanager
-
-# 然后在 app/build.gradle.kts 中配置 signingConfigs
-# 最后执行：
-./gradlew assembleRelease
-# 输出: app/build/outputs/apk/release/app-release.apk
 ```
-
-**Release APK vs Debug APK 对比：**
-
-| | Debug APK | Release APK |
-|--|-----------|-------------|
-| 体积 | 较大（~30MB+） | 较小（~10MB） |
-| 性能 | 未优化 | 已优化（混淆、压缩） |
-| 调试信息 | 包含 | 已移除 |
-| 签名 | Debug 签名 | 自定义签名 |
-| 用途 | 开发测试 | 分发发布 |
 
 ---
 
 ## 📝 更新日志
 
-### v1.0.1 (2026-04-23)
+### v2.0.0 (2026-04-24)
 
-**新增功能：**
-- 🤖 支持多个 AI 提供商（Kimi、DeepSeek、通义千问、豆包、智谱 GLM、自定义）
-- ✨ AI 自然语言快速创建任务（首页 FAB 按钮）
-- ☑️ 任务列表批量选择与删除（长按进入选择模式，支持全选）
+**重大更新 — 从任务管理器升级为 AI 生活管家：**
+- 🎯 AI 智能目标规划（根据目标复杂度自动决定计划范围）
+- 🌤️ 天气感知（Open-Meteo 免费 API，自动获取天气调整运动安排）
+- ⏰ 闹钟 + 通知提醒（计划项自动设置闹钟，到点弹窗通知）
+- ✅ 打卡追踪（入睡/醒来/运动/吃饭/学习一键打卡）
+- 🚶 步数统计（传感器低功耗检测）
+- 📱 屏幕使用检测（辅助判断睡眠，低功耗）
+- 🔔 打卡通知确认
+- 🔄 重新生成 / 清除计划按钮
+- 📐 精简导航（首页 + 设置，两个 Tab）
 
 **修复：**
-- 修复 API 双重 Authorization 头导致调用失败的问题
-- 修复 Material3 1.2.0 API 兼容性（Divider → HorizontalDivider，ListItem 参数名）
-- 修复 Room KSP 编译错误（NULLS LAST 语法、exportSchema、空 Converters）
-- 修复 Hilt 依赖注入（TaskMapper 缺少 @Inject constructor）
-- 修复 Kotlin 编译错误（JsonParser、dp import、combine 类型推断、@OptIn 注解）
+- 修复简单目标也生成整天计划的问题（重写 AI 提示词）
+- 修复步数永远显示 0（接入 StepTracker）
+- 修复 Hilt 注入 Context 失败（添加 @ApplicationContext）
+
+### v1.0.1 (2026-04-23)
+
+- 🤖 支持多个 AI 提供商（Kimi、DeepSeek、通义千问、豆包、智谱 GLM、自定义）
+- ✨ AI 自然语言快速创建任务
+- ☑️ 任务列表批量选择与删除
+- 修复 API 双重 Authorization 头、Material3 兼容性、Room KSP 编译等问题
 
 ### v1.0.0 (2026-04-23)
 
-**初始版本：**
-- 📱 基于 Jetpack Compose + Material 3 的 Android 应用
-- 🏗️ MVVM + Clean Architecture 架构
-- 🤖 Kimi AI 接入（自然语言任务解析、智能建议）
-- 📋 任务管理（增删改查、优先级、分类、状态）
-- ⏰ 智能提醒（通知、声音、振动）
-- 💧 健康提醒（喝水定时提醒）
-- 🎨 深色/浅色/跟随系统主题
-- 🔄 GitHub Actions 自动构建
+- 初始版本：基于 Jetpack Compose + Material 3 的任务管理应用
+- Kimi AI 接入、任务 CRUD、智能提醒、GitHub Actions 自动构建
 
 ## License
 

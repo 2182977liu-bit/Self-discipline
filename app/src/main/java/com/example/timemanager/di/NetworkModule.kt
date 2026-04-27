@@ -1,19 +1,29 @@
 package com.example.timemanager.di
 
 import com.example.timemanager.data.local.datastore.UserPreferences
+import com.example.timemanager.data.remote.weather.WeatherApiService
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Singleton
 
-/**
- * 网络依赖注入模块
- *
- * 注意：API Service 现在由 AIRepositoryImpl 动态创建，
- * 因为不同的 AI 提供商需要不同的 Base URL。
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    // KimiApiService 和 AuthInterceptor 的提供已移除
-    // AIRepositoryImpl 会根据用户选择的 AI 提供商动态创建 Retrofit 实例
+
+    /**
+     * 提供天气 API Service（单例，避免重复创建 Retrofit 实例）
+     */
+    @Provides
+    @Singleton
+    fun provideWeatherApiService(): WeatherApiService {
+        return Retrofit.Builder()
+            .baseUrl(WeatherApiService.BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(WeatherApiService::class.java)
+    }
 }

@@ -1,8 +1,8 @@
 package com.example.timemanager.presentation.screen.home
 
-import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.timemanager.data.local.datastore.UserPreferences
 import com.example.timemanager.data.remote.weather.WeatherApiService
 import com.example.timemanager.domain.model.CheckIn
 import com.example.timemanager.domain.model.CheckInType
@@ -27,11 +27,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val application: Application,
     private val aiRepository: AIRepository,
     private val stepTracker: StepTracker,
     private val alarmScheduler: AlarmScheduler,
-    private val notificationHelper: NotificationHelper
+    private val notificationHelper: NotificationHelper,
+    private val weatherApiService: WeatherApiService,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -39,10 +40,12 @@ class HomeViewModel @Inject constructor(
 
     private val gson = Gson()
     private val planItemType = object : TypeToken<List<PlanItem>>() {}.type
+    private val checkInType = object : TypeToken<List<CheckIn>>() {}.type
 
     init {
         loadWeather()
         startStepTracking()
+        loadSavedCheckIns()
     }
 
     fun onEvent(event: HomeEvent) {
@@ -66,6 +69,26 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             stepTracker.todaySteps.collect { steps ->
                 _uiState.update { it.copy(todaySteps = steps) }
+            }
+        }
+    }
+
+    /**
+     * 从 DataStore 加载今日已保存的打卡记录
+     */
+    private fun loadSavedCheckIns() {
+        viewModelScope.launch {
+            userPreferences.todayCheckIns.collect { json ->
+                if (json != "[]") {
+                    try {
+                        val savedCheckIns: List<CheckIn> = gson.fromJson(json, checkInType)
+                        if (savedCheckIns.isNotEmpty()) {
+                            _uiState.update { it.copy(todayCheckIns = savedCheckIns) }
+                        }
+                    } catch (_: Exception) {
+                        // 解析失败忽略
+                    }
+                }
             }
         }
     }
@@ -158,12 +181,7 @@ class HomeViewModel @Inject constructor(
     private fun loadWeather() {
         viewModelScope.launch {
             try {
-                val retrofit = retrofit2.Retrofit.Builder()
-                    .baseUrl(WeatherApiService.BASE_URL)
-                    .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
-                    .build()
-                val weatherApi = retrofit.create(WeatherApiService::class.java)
-                val response = weatherApi.getCurrentWeather(39.9, 116.4)
+                val response = weatherApiService.getCurrentWeather(39.9, 116.4)
                 val current = response.current
                 if (current != null) {
                     val info = "${current.getDescription()} ${current.temperature}°C"
@@ -191,6 +209,11 @@ class HomeViewModel @Inject constructor(
         )
         _uiState.update {
             it.copy(todayCheckIns = it.todayCheckIns + checkIn)
+        }
+        // 持久化打卡数据到 DataStore
+        viewModelScope.launch {
+            val updatedCheckIns = _uiState.value.todayCheckIns
+            userPreferences.saveTodayCheckIns(gson.toJson(updatedCheckIns))
         }
         // 发送打卡通知确认
         notificationHelper.showHealthReminder(

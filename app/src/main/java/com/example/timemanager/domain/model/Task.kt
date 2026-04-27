@@ -98,7 +98,7 @@ enum class TaskStatus(val value: Int, val label: String) {
 
     companion object {
         fun fromValue(value: Int): TaskStatus {
-            return entries.find { it.value == value } ?: TODO
+            return entries.find { it.value == value } ?: TaskStatus.TODO
         }
     }
 }

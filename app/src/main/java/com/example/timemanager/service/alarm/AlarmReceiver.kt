@@ -8,8 +8,7 @@ import androidx.core.content.ContextCompat
 import com.example.timemanager.service.notification.HealthReminderType
 import com.example.timemanager.service.notification.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -89,10 +88,13 @@ class AlarmReceiver : BroadcastReceiver() {
      * 显示任务通知
      */
     private fun showTaskNotification(taskId: String) {
-        // 这里需要从数据库获取任务信息
-        // 简化实现：显示通用通知
-        CoroutineScope(Dispatchers.Main).launch {
-            notificationHelper.showAISuggestion("您有一个任务即将到期")
+        val pendingResult = goAsync()
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            try {
+                notificationHelper.showAISuggestion("您有一个任务即将到期")
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 }

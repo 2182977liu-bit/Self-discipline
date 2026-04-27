@@ -217,6 +217,49 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            // 外观设置
+            SettingsSection(title = "外观") {
+                var themeExpanded by remember { mutableStateOf(false) }
+                val themeOptions = listOf(0 to "跟随系统", 1 to "浅色模式", 2 to "深色模式")
+                val currentThemeLabel = when (uiState.themeMode) {
+                    1 -> "浅色模式"
+                    2 -> "深色模式"
+                    else -> "跟随系统"
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = themeExpanded,
+                    onExpandedChange = { themeExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = currentThemeLabel,
+                        onValueChange = {},
+                        label = { Text("主题模式") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = themeExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = themeExpanded,
+                        onDismissRequest = { themeExpanded = false }
+                    ) {
+                        themeOptions.forEach { (mode, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    viewModel.onEvent(SettingsEvent.UpdateThemeMode(mode))
+                                    themeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             // 提醒设置
             SettingsSection(title = "提醒设置") {
                 var expanded by remember { mutableStateOf(false) }
@@ -324,7 +367,7 @@ fun SettingsScreen(
 
                 ListItem(
                     headlineContent = { Text("AI智能时间管理") },
-                    supportingContent = { Text("基于Kimi AI的智能任务管理应用") },
+                    supportingContent = { Text("AI 智能生活管家 - 多模型支持") },
                     leadingContent = {
                         Icon(Icons.Default.Info, contentDescription = null)
                     }

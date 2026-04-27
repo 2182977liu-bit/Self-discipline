@@ -38,6 +38,10 @@ class UserPreferences(private val context: Context) {
         val WATER_REMINDER_ENABLED = booleanPreferencesKey("water_reminder_enabled")
         val WATER_REMINDER_INTERVAL = intPreferencesKey("water_reminder_interval") // 分钟
 
+        // 打卡数据（JSON格式，按日期存储）
+        val TODAY_CHECK_INS = stringPreferencesKey("today_check_ins")
+        val TODAY_CHECK_INS_DATE = stringPreferencesKey("today_check_ins_date")
+
         // 首次启动标记
         val FIRST_LAUNCH = booleanPreferencesKey("first_launch")
 
@@ -274,6 +278,31 @@ class UserPreferences(private val context: Context) {
     suspend fun saveLastSyncTime(time: Long) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.LAST_SYNC_TIME] = time
+        }
+    }
+
+    // ==================== 打卡数据 ====================
+
+    /**
+     * 获取今日打卡记录
+     */
+    val todayCheckIns: Flow<String> = context.dataStore.data.map { preferences ->
+        val savedDate = preferences[PreferencesKeys.TODAY_CHECK_INS_DATE] ?: ""
+        val today = java.time.LocalDate.now().toString()
+        if (savedDate == today) {
+            preferences[PreferencesKeys.TODAY_CHECK_INS] ?: "[]"
+        } else {
+            "[]"
+        }
+    }
+
+    /**
+     * 保存今日打卡记录
+     */
+    suspend fun saveTodayCheckIns(checkInsJson: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.TODAY_CHECK_INS] = checkInsJson
+            preferences[PreferencesKeys.TODAY_CHECK_INS_DATE] = java.time.LocalDate.now().toString()
         }
     }
 

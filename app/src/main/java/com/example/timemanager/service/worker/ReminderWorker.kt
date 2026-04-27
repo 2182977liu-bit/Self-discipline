@@ -49,13 +49,19 @@ class ReminderWorker @AssistedInject constructor(
         val upcomingTasks = taskDao.getUpcomingTasks(currentTime, thresholdTime)
 
         upcomingTasks.forEach { taskEntity ->
-            // 检查是否需要发送提醒（dueTime是毫秒时间戳）
             val reminderTime = taskEntity.dueTime?.let {
                 it - taskEntity.reminderMinutes * 60 * 1000L
             }
             if (reminderTime != null && reminderTime <= currentTime) {
-                // 发送通知
-                // notificationHelper.showTaskReminder(task)
+                val task = com.example.timemanager.domain.model.Task(
+                    id = taskEntity.id,
+                    title = taskEntity.title,
+                    description = taskEntity.description,
+                    status = com.example.timemanager.domain.model.TaskStatus.fromValue(taskEntity.status),
+                    priority = com.example.timemanager.domain.model.Priority.fromValue(taskEntity.priority),
+                    reminderMinutes = taskEntity.reminderMinutes
+                )
+                notificationHelper.showTaskReminder(task)
             }
         }
     }

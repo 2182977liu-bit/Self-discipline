@@ -193,7 +193,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun updateThemeMode(mode: Int) {
-        viewModelScope.launch { userPreferences.saveThemeMode(mode) }
+        viewModelScope.launch {
+            userPreferences.saveThemeMode(mode)
+            _uiState.update { it.copy(themeMode = mode) }
+        }
     }
 
     private fun updateNotificationEnabled(enabled: Boolean) {

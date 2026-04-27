@@ -8,32 +8,31 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.example.timemanager.presentation.navigation.AppNavigation
 import com.example.timemanager.presentation.theme.TimeManagerTheme
 import com.example.timemanager.service.worker.ReminderWorker
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
-/**
- * 主Activity
- *
- * 应用入口，负责初始化UI和权限请求
- */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    // 权限请求启动器
+    @Inject
+    lateinit var userPreferences: com.example.timemanager.data.local.datastore.UserPreferences
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // 处理权限结果
         permissions.forEach { (permission, granted) ->
             if (!granted) {
-                // 用户拒绝了权限
-                // TODO: 显示提示
+                // 用户拒绝了权限，可忽略
             }
         }
     }
@@ -41,14 +40,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 请求必要权限
         requestPermissions()
-
-        // 启动后台提醒服务
         ReminderWorker.schedule(this)
 
         setContent {
-            TimeManagerTheme {
+            val themeMode by userPreferences.themeMode.collectAsState(initial = 0)
+            val darkTheme = when (themeMode) {
+                1 -> false  // 浅色
+                2 -> true   // 深色
+                else -> isSystemInDarkTheme()  // 跟随系统
+            }
+
+            TimeManagerTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -59,13 +62,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * 请求必要权限
-     */
     private fun requestPermissions() {
         val permissionsToRequest = mutableListOf<String>()
 
-        // 通知权限 (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     this,
@@ -76,7 +75,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 如果有需要请求的权限
         if (permissionsToRequest.isNotEmpty()) {
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }

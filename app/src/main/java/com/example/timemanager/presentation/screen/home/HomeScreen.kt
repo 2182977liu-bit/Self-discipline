@@ -17,8 +17,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.domain.model.CheckInType
 import com.example.timemanager.domain.model.PlanItem
 import com.example.timemanager.domain.model.PlanType
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
 /**
  * AI 生活管家首页
@@ -26,7 +24,7 @@ import com.google.gson.reflect.TypeToken
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onNavigateToTask: (String) -> Unit = {},
+    onNavigateToTaskList: () -> Unit = {},
     onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -123,6 +121,18 @@ fun HomeScreen(
                 QuickCheckInButtons(
                     onCheckIn = { viewModel.onEvent(HomeEvent.ShowCheckInDialog) }
                 )
+            }
+
+            // 查看任务按钮
+            item {
+                OutlinedButton(
+                    onClick = onNavigateToTaskList,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.List, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("查看任务列表")
+                }
             }
 
             // AI 加载中

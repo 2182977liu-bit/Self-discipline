@@ -32,17 +32,3 @@ sealed class Screen(val route: String) {
      */
     data object AIAssistant : Screen("ai")
 }
-
-/**
- * 底部导航项
- */
-enum class BottomNavItem(
-    val screen: Screen,
-    val label: String,
-    val icon: String
-) {
-    HOME(Screen.Home, "首页", "home"),
-    TASKS(Screen.TaskList, "任务", "task"),
-    AI(Screen.AIAssistant, "AI助手", "auto_awesome"),
-    SETTINGS(Screen.Settings, "设置", "settings")
-}
